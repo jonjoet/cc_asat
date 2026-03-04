@@ -181,7 +181,7 @@ Each merged feature is tagged with `annotation_source=merged`, `ref_id=`, and `v
 
 ### Iterative Runs (Using Pipeline Output as Input)
 
-The pipeline's merged GFF and final FASTA can be fed back as the reference for a subsequent run. Use `--merge_novel_only` to do this safely:
+The pipeline's merged GFF and final FASTA can be fed back as the reference for a subsequent run. Use `--merge_novel_only` and `--fix_generic_names false` to do this safely:
 
 ```bash
 nextflow run main.nf \
@@ -190,11 +190,14 @@ nextflow run main.nf \
     --reference_gff  prev_run_merged.gff3 \
     --vendor_gff     new_vendor.gff \
     --merge_novel_only true \
+    --fix_generic_names false \
     --organism_type  fungal \
     -profile         docker
 ```
 
 In novel-only mode, reference features pass through unchanged and only vendor features with no match (full or partial) to any reference feature are added. This preserves curated annotations from previous runs while still discovering genuinely novel features from the new vendor source.
+
+`--fix_generic_names false` is needed because the name-fixing step uses gffutils, which can crash on duplicate feature IDs produced by Liftoff's `-copies` mode. Since names were already fixed in the first run, re-fixing is unnecessary.
 
 Without `--merge_novel_only`, the full symmetric merge would produce stale metadata attributes and duplicated features across rounds — use the full merge only for first-time runs where both annotation sources are independent.
 

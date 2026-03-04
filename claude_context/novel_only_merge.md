@@ -36,6 +36,10 @@ The matching/classification logic still runs identically so the summary reports 
 - The vendor liftoff still runs upstream (it is independent of the merge step), so the lifted vendor GFF is still available as a separate output for inspection.
 - `--skip-merge` remains orthogonal: it skips the merge process entirely, while `--novel-only` runs the merge process in a restricted output mode.
 
+## Companion flag: `--fix_generic_names false`
+
+For iterative runs, `--fix_generic_names false` should also be set. The `fix_gff_names.py` script uses gffutils to load the Liftoff output, but gffutils' `create_unique` merge strategy has a single-retry bug: when a duplicate ID is encountered, it tries one suffixed alternative (`_1`), and if that also exists, it crashes with `UNIQUE constraint failed`. This happens when Liftoff's `-copies` flag produces child features with duplicate IDs across gene copies. Since names were already fixed in the previous run, re-fixing is unnecessary anyway.
+
 ## Implementation
 
 Three files changed:
