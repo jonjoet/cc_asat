@@ -1,4 +1,4 @@
-# cc_asat — Assembly Scaffold and Annotation Transfer
+# cc_asat — Assembly Scaffolding and Annotation Transfer
 
 Nextflow DSL2 pipeline for validating and improving microbial de novo assemblies against a reference genome. Supports both fungal (eukaryotic) and bacterial (prokaryotic) genomes. Scaffolds the assembly, closes gaps, transfers annotations from both reference and vendor sources, merges them using identity-based matching, and produces QC reports.
 
