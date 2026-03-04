@@ -92,7 +92,7 @@ def load_db(gff_path, label):
     db = gffutils.create_db(
         gff_path,
         ':memory:',
-        merge_strategy='create_unique',
+        merge_strategy='merge',
         sort_attribute_values=True,
         force=True,
     )
