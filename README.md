@@ -117,9 +117,10 @@ nextflow run main.nf -entry ANNOTATION_TRANSFER_ONLY \
 
 | Parameter | Default | Description |
 |---|---|---|
+| `--merge_novel_only` | `false` | Novel-only mode: reference features pass through unchanged, only unmatched vendor features are added. Recommended for iterative runs (see below). |
 | `--merge_overlap_threshold` | `0.50` | Reciprocal CDS overlap fraction required for positional match |
-| `--coord_preference` | `reference` | Source of coordinates for merged features |
-| `--description_preference` | `vendor` | Source of Name/product/description for merged features |
+| `--coord_preference` | `reference` | Source of coordinates for merged features (ignored in novel-only mode) |
+| `--description_preference` | `vendor` | Source of Name/product/description for merged features (ignored in novel-only mode) |
 | `--merge_exact_fields` | `ID Name gene locus_tag` | GFF attributes matched as whole strings |
 | `--merge_word_fields` | `product description` | GFF attributes matched word-by-word (set to `none` to disable) |
 | `--merge_word_min_length` | `4` | Minimum word length for word-field matching |
@@ -177,6 +178,25 @@ The merge summary (`{sample}_merge_summary.txt`) reports:
 - **Unmatched**: Present in only one source — kept as-is with source tag
 
 Each merged feature is tagged with `annotation_source=merged`, `ref_id=`, and `vendor_id=` attributes. Unmatched and partial features are tagged with `annotation_source=reference` or `annotation_source=vendor`.
+
+### Iterative Runs (Using Pipeline Output as Input)
+
+The pipeline's merged GFF and final FASTA can be fed back as the reference for a subsequent run. Use `--merge_novel_only` to do this safely:
+
+```bash
+nextflow run main.nf \
+    --assembly       new_assembly.fasta \
+    --reference      prev_run_final.fasta \
+    --reference_gff  prev_run_merged.gff3 \
+    --vendor_gff     new_vendor.gff \
+    --merge_novel_only true \
+    --organism_type  fungal \
+    -profile         docker
+```
+
+In novel-only mode, reference features pass through unchanged and only vendor features with no match (full or partial) to any reference feature are added. This preserves curated annotations from previous runs while still discovering genuinely novel features from the new vendor source.
+
+Without `--merge_novel_only`, the full symmetric merge would produce stale metadata attributes and duplicated features across rounds — use the full merge only for first-time runs where both annotation sources are independent.
 
 ## Profiles
 

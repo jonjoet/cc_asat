@@ -20,6 +20,7 @@ process MERGE_ANNOTATIONS {
 
     script:
     def always_keep_arg = params.always_keep_types ? "--always-keep-types '${params.always_keep_types}'" : ''
+    def novel_only_arg = params.merge_novel_only ? '--novel-only' : ''
     """
     merge_annotations.py \\
         --reference ref_liftoff_output.gff3 \\
@@ -32,6 +33,7 @@ process MERGE_ANNOTATIONS {
         --exact-fields '${params.merge_exact_fields}' \\
         --word-fields '${params.merge_word_fields}' \\
         --word-min-length ${params.merge_word_min_length} \\
-        ${always_keep_arg}
+        ${always_keep_arg} \\
+        ${novel_only_arg}
     """
 }

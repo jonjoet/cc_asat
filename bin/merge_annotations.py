@@ -428,51 +428,84 @@ def build_output_lines(resolved_full, partial_pos, partial_id,
                        unmatched_ref, unmatched_vendor,
                        ref_db, vendor_db,
                        coord_pref, desc_pref,
-                       always_keep_types):
+                       always_keep_types, novel_only=False):
     """Build all output GFF3 lines from classification results.
+
+    In novel_only mode, reference features pass through unchanged and only
+    truly unmatched vendor features are added (no merging, no partial copies).
 
     Returns list of (seqid, start, line_str) for sorting.
     """
     entries = []  # (seqid, start, line_str)
 
-    # Full matches → merged features
-    for rg, vg, frac, ids in resolved_full:
-        merged_lines = merge_matched_gene(rg, vg, ref_db, vendor_db,
-                                          coord_pref, desc_pref, frac, ids)
-        coord_gene = vg if coord_pref == 'vendor' else rg
-        for line in merged_lines:
-            entries.append((coord_gene.seqid, coord_gene.start, line))
+    if novel_only:
+        # Novel-only mode: reference features pass through as-is,
+        # only unmatched vendor features are appended.
 
-    # Partial matches (position only) → both kept independently
-    for rg, vg, frac in partial_pos:
-        note = f'partial_match:position_only;overlap_frac={frac:.2f};with={vg.id}'
-        for line in emit_gene_with_children(rg, ref_db, 'reference', note):
-            entries.append((rg.seqid, rg.start, line))
+        # All reference genes that participated in any match → keep unchanged
+        for rg, vg, frac, ids in resolved_full:
+            for line in emit_gene_with_children(rg, ref_db, 'reference'):
+                entries.append((rg.seqid, rg.start, line))
 
-        note = f'partial_match:position_only;overlap_frac={frac:.2f};with={rg.id}'
-        for line in emit_gene_with_children(vg, vendor_db, 'vendor', note):
-            entries.append((vg.seqid, vg.start, line))
+        for rg, vg, frac in partial_pos:
+            for line in emit_gene_with_children(rg, ref_db, 'reference'):
+                entries.append((rg.seqid, rg.start, line))
 
-    # Partial matches (identifier only) → both kept independently
-    for rg, vg, ids in partial_id:
-        ids_str = ','.join(sorted(ids))
-        note = f'partial_match:identifier_only;matched_ids={ids_str};with={vg.id}'
-        for line in emit_gene_with_children(rg, ref_db, 'reference', note):
-            entries.append((rg.seqid, rg.start, line))
+        for rg, vg, ids in partial_id:
+            for line in emit_gene_with_children(rg, ref_db, 'reference'):
+                entries.append((rg.seqid, rg.start, line))
 
-        note = f'partial_match:identifier_only;matched_ids={ids_str};with={rg.id}'
-        for line in emit_gene_with_children(vg, vendor_db, 'vendor', note):
-            entries.append((vg.seqid, vg.start, line))
+        # Unmatched reference
+        for rg in unmatched_ref:
+            for line in emit_gene_with_children(rg, ref_db, 'reference'):
+                entries.append((rg.seqid, rg.start, line))
 
-    # Unmatched reference
-    for rg in unmatched_ref:
-        for line in emit_gene_with_children(rg, ref_db, 'reference'):
-            entries.append((rg.seqid, rg.start, line))
+        # Only unmatched vendor features are added
+        for vg in unmatched_vendor:
+            for line in emit_gene_with_children(vg, vendor_db, 'vendor'):
+                entries.append((vg.seqid, vg.start, line))
 
-    # Unmatched vendor
-    for vg in unmatched_vendor:
-        for line in emit_gene_with_children(vg, vendor_db, 'vendor'):
-            entries.append((vg.seqid, vg.start, line))
+    else:
+        # Full merge mode (original behavior)
+
+        # Full matches → merged features
+        for rg, vg, frac, ids in resolved_full:
+            merged_lines = merge_matched_gene(rg, vg, ref_db, vendor_db,
+                                              coord_pref, desc_pref, frac, ids)
+            coord_gene = vg if coord_pref == 'vendor' else rg
+            for line in merged_lines:
+                entries.append((coord_gene.seqid, coord_gene.start, line))
+
+        # Partial matches (position only) → both kept independently
+        for rg, vg, frac in partial_pos:
+            note = f'partial_match:position_only;overlap_frac={frac:.2f};with={vg.id}'
+            for line in emit_gene_with_children(rg, ref_db, 'reference', note):
+                entries.append((rg.seqid, rg.start, line))
+
+            note = f'partial_match:position_only;overlap_frac={frac:.2f};with={rg.id}'
+            for line in emit_gene_with_children(vg, vendor_db, 'vendor', note):
+                entries.append((vg.seqid, vg.start, line))
+
+        # Partial matches (identifier only) → both kept independently
+        for rg, vg, ids in partial_id:
+            ids_str = ','.join(sorted(ids))
+            note = f'partial_match:identifier_only;matched_ids={ids_str};with={vg.id}'
+            for line in emit_gene_with_children(rg, ref_db, 'reference', note):
+                entries.append((rg.seqid, rg.start, line))
+
+            note = f'partial_match:identifier_only;matched_ids={ids_str};with={rg.id}'
+            for line in emit_gene_with_children(vg, vendor_db, 'vendor', note):
+                entries.append((vg.seqid, vg.start, line))
+
+        # Unmatched reference
+        for rg in unmatched_ref:
+            for line in emit_gene_with_children(rg, ref_db, 'reference'):
+                entries.append((rg.seqid, rg.start, line))
+
+        # Unmatched vendor
+        for vg in unmatched_vendor:
+            for line in emit_gene_with_children(vg, vendor_db, 'vendor'):
+                entries.append((vg.seqid, vg.start, line))
 
     return entries
 
@@ -501,11 +534,17 @@ def _fmt_gene(gene, db):
 def write_summary(summary_path, ref_genes, vendor_genes,
                   resolved_full, partial_pos, partial_id,
                   unmatched_ref, unmatched_vendor,
-                  ref_db, vendor_db, coord_pref, desc_pref):
+                  ref_db, vendor_db, coord_pref, desc_pref,
+                  novel_only=False):
     """Write human-readable merge summary."""
     lines = []
     lines.append('=' * 60)
-    lines.append('ANNOTATION MERGE SUMMARY')
+    if novel_only:
+        lines.append('ANNOTATION MERGE SUMMARY (novel-only mode)')
+        lines.append('Reference features: kept unchanged')
+        lines.append('Vendor features: only unmatched added')
+    else:
+        lines.append('ANNOTATION MERGE SUMMARY')
     lines.append('=' * 60)
     lines.append(f'Reference genes:    {len(ref_genes)}')
     lines.append(f'Vendor genes:       {len(vendor_genes)}')
@@ -604,6 +643,9 @@ def parse_args():
                         '(default: "%(default)s")')
     p.add_argument('--word-min-length', type=int, default=4,
                    help='Minimum word length for word-field matching (default: 4)')
+    p.add_argument('--novel-only', action='store_true', default=False,
+                   help='Only add unmatched vendor features; reference features '
+                        'pass through unchanged (no merging)')
     p.add_argument('--reference-label', default='Reference',
                    help='Label for reference in summary (default: Reference)')
     p.add_argument('--vendor-label', default='Vendor',
@@ -679,13 +721,17 @@ def main():
     unmatched_vendor = [g for g in vendor_genes if g.id not in all_matched_vendor]
 
     # Build output
-    print("Building merged GFF3...", file=sys.stderr)
+    if args.novel_only:
+        print("Building novel-only GFF3 (reference unchanged, unmatched vendor added)...",
+              file=sys.stderr)
+    else:
+        print("Building merged GFF3...", file=sys.stderr)
     entries = build_output_lines(
         resolved_full, partial_pos, partial_id,
         unmatched_ref, unmatched_vendor,
         ref_db, vendor_db,
         args.coord_preference, args.description_preference,
-        always_keep_types,
+        always_keep_types, novel_only=args.novel_only,
     )
     write_gff(args.output, entries)
 
@@ -696,6 +742,7 @@ def main():
         unmatched_ref, unmatched_vendor,
         ref_db, vendor_db,
         args.coord_preference, args.description_preference,
+        novel_only=args.novel_only,
     )
 
     print("Done.", file=sys.stderr)
