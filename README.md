@@ -120,6 +120,9 @@ nextflow run main.nf -entry ANNOTATION_TRANSFER_ONLY \
 | `--merge_overlap_threshold` | `0.50` | Reciprocal CDS overlap fraction required for positional match |
 | `--coord_preference` | `reference` | Source of coordinates for merged features |
 | `--description_preference` | `vendor` | Source of Name/product/description for merged features |
+| `--merge_exact_fields` | `ID Name gene locus_tag` | GFF attributes matched as whole strings |
+| `--merge_word_fields` | `product description` | GFF attributes matched word-by-word (set to `none` to disable) |
+| `--merge_word_min_length` | `4` | Minimum word length for word-field matching |
 | `--always_keep_types` | `transposable_element repeat_region LTR_retrotransposon long_terminal_repeat transposon_fragment` | Space-separated feature types never dropped |
 
 ### General

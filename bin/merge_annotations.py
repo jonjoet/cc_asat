@@ -29,7 +29,14 @@ import gffutils
 # Shared constants
 # ---------------------------------------------------------------------------
 
-IDENTIFIER_KEYS = ('ID', 'Name', 'gene', 'locus_tag', 'product', 'description')
+# Default fields for exact matching (structured identifiers)
+DEFAULT_EXACT_FIELDS = ('ID', 'Name', 'gene', 'locus_tag')
+
+# Default fields for word-level matching (free-text annotations)
+DEFAULT_WORD_FIELDS = ('product', 'description')
+
+# Kept for GENERIC_VALUES / GENERIC_PATTERN filtering (used by both modes)
+IDENTIFIER_KEYS = DEFAULT_EXACT_FIELDS + DEFAULT_WORD_FIELDS
 
 GENERIC_VALUES = {
     'hypothetical protein', 'conserved protein of unknown function',
@@ -96,24 +103,37 @@ def load_db(gff_path, label):
 # Identifier collection
 # ---------------------------------------------------------------------------
 
-def collect_identifiers(gene, db):
+def _tokenize(value, min_length):
+    """Split a free-text value into lowercase word tokens of at least min_length."""
+    return {w.lower() for w in re.findall(r'[A-Za-z0-9]+', value)
+            if len(w) >= min_length}
+
+
+def collect_identifiers(gene, db, exact_fields, word_fields, word_min_length):
     """Collect non-generic identifiers from a gene and all its descendants.
 
-    Returns a set of lowercase identifier strings.
+    Exact fields are matched as whole lowercase strings.
+    Word fields are tokenized into individual words (>= word_min_length chars).
+
+    Returns a set of lowercase tokens suitable for intersection testing.
     """
     ids = set()
 
     def _harvest(feature):
-        for key in IDENTIFIER_KEYS:
-            val = get_attr_first(feature, key)
-            if val and not is_generic(val):
-                ids.add(val.lower())
+        for key in exact_fields:
+            for val in feature.attributes.get(key, []):
+                if val and not is_generic(val):
+                    ids.add(val.lower())
+        for key in word_fields:
+            for val in feature.attributes.get(key, []):
+                if val and not is_generic(val):
+                    ids.update(_tokenize(val, word_min_length))
 
     _harvest(gene)
     try:
-        for child in db.children(gene, level=None):
+        for child in db.children(gene.id, level=None):
             _harvest(child)
-    except gffutils.FeatureNotFoundError:
+    except Exception:
         pass
 
     return ids
@@ -194,7 +214,8 @@ def find_overlapping_genes(gene, genes_by_seqid):
 # ---------------------------------------------------------------------------
 
 def find_all_candidates(ref_genes, vendor_genes, ref_db, vendor_db,
-                        vendor_by_seqid, overlap_threshold):
+                        vendor_by_seqid, overlap_threshold,
+                        exact_fields, word_fields, word_min_length):
     """Find all candidate match pairs between reference and vendor genes.
 
     Returns three lists:
@@ -211,14 +232,16 @@ def find_all_candidates(ref_genes, vendor_genes, ref_db, vendor_db,
     ref_ids = {}
     for rg in ref_genes:
         ref_fps[rg.id] = cds_footprint(rg, ref_db)
-        ref_ids[rg.id] = collect_identifiers(rg, ref_db)
+        ref_ids[rg.id] = collect_identifiers(rg, ref_db,
+                                              exact_fields, word_fields, word_min_length)
 
     # Pre-compute vendor footprints and identifiers
     vendor_fps = {}
     vendor_ids = {}
     for vg in vendor_genes:
         vendor_fps[vg.id] = cds_footprint(vg, vendor_db)
-        vendor_ids[vg.id] = collect_identifiers(vg, vendor_db)
+        vendor_ids[vg.id] = collect_identifiers(vg, vendor_db,
+                                                 exact_fields, word_fields, word_min_length)
 
     for rg in ref_genes:
         r_fp = ref_fps[rg.id]
@@ -571,6 +594,16 @@ def parse_args():
                    help='Source of Name/product/description for merged features (default: vendor)')
     p.add_argument('--always-keep-types', default=None,
                    help='Space-separated feature types that are never dropped')
+    p.add_argument('--exact-fields',
+                   default=' '.join(DEFAULT_EXACT_FIELDS),
+                   help='Space-separated GFF attribute keys matched exactly '
+                        '(default: "%(default)s")')
+    p.add_argument('--word-fields',
+                   default=' '.join(DEFAULT_WORD_FIELDS),
+                   help='Space-separated GFF attribute keys matched word-by-word '
+                        '(default: "%(default)s")')
+    p.add_argument('--word-min-length', type=int, default=4,
+                   help='Minimum word length for word-field matching (default: 4)')
     p.add_argument('--reference-label', default='Reference',
                    help='Label for reference in summary (default: Reference)')
     p.add_argument('--vendor-label', default='Vendor',
@@ -584,6 +617,13 @@ def main():
     always_keep_types = set()
     if args.always_keep_types:
         always_keep_types = set(args.always_keep_types.split())
+
+    exact_fields = tuple(args.exact_fields.split()) if args.exact_fields.lower() != 'none' else ()
+    word_fields = tuple(args.word_fields.split()) if args.word_fields.lower() != 'none' else ()
+
+    print(f"Identifier matching — exact fields: {exact_fields}", file=sys.stderr)
+    print(f"Identifier matching — word fields:  {word_fields} "
+          f"(min word length: {args.word_min_length})", file=sys.stderr)
 
     # Load databases
     ref_db = load_db(args.reference, args.reference_label)
@@ -603,6 +643,7 @@ def main():
     full_matches, partial_pos, partial_id = find_all_candidates(
         ref_genes, vendor_genes, ref_db, vendor_db,
         vendor_by_seqid, args.overlap_threshold,
+        exact_fields, word_fields, args.word_min_length,
     )
     print(f"  Full match candidates: {len(full_matches)}", file=sys.stderr)
     print(f"  Partial (position): {len(partial_pos)}", file=sys.stderr)

@@ -29,6 +29,9 @@ process MERGE_ANNOTATIONS {
         --overlap-threshold ${params.merge_overlap_threshold} \\
         --coord-preference ${params.coord_preference} \\
         --description-preference ${params.description_preference} \\
+        --exact-fields '${params.merge_exact_fields}' \\
+        --word-fields '${params.merge_word_fields}' \\
+        --word-min-length ${params.merge_word_min_length} \\
         ${always_keep_arg}
     """
 }
