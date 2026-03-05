@@ -65,9 +65,12 @@ workflow ANNOTATION_TRANSFER_ONLY {
     QUAST(ch_assembly_for_quast, ch_reference, ch_reference_gff)
 
     emit:
-    lifted_gff        = ANNOTATION_TRANSFER.out.lifted_gff
-    unmapped          = ANNOTATION_TRANSFER.out.unmapped
-    vendor_lifted_gff = ANNOTATION_TRANSFER.out.vendor_lifted_gff
-    merged_gff        = ANNOTATION_TRANSFER.out.merged_gff
-    merge_summary     = ANNOTATION_TRANSFER.out.merge_summary
+    lifted_gff              = ANNOTATION_TRANSFER.out.lifted_gff
+    unmapped                = ANNOTATION_TRANSFER.out.unmapped
+    vendor_lifted_gff       = ANNOTATION_TRANSFER.out.vendor_lifted_gff
+    merged_gff              = ANNOTATION_TRANSFER.out.merged_gff
+    merge_summary           = ANNOTATION_TRANSFER.out.merge_summary
+    merged_iterative_gff    = ANNOTATION_TRANSFER.out.merged_iterative_gff
+    merge_iterative_summary = ANNOTATION_TRANSFER.out.merge_iterative_summary
+    copy_report             = ANNOTATION_TRANSFER.out.copy_report
 }

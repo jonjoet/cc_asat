@@ -1,9 +1,9 @@
 process LIFTOFF {
     tag "${params.sample_name}"
     label 'process_medium'
-    publishDir "${params.outdir}/annotation_transfer/liftoff_${prefix}", mode: 'copy'
+    publishDir "${params.outdir}/annotation_transfer/liftoff/${prefix}", mode: 'copy'
     publishDir "${params.outdir}/final_outputs", mode: 'copy', saveAs: { filename ->
-        filename.endsWith('_liftoff.gff3') ? filename : null
+        filename.endsWith('_liftoff.gff3') && prefix == 'reference' ? filename : null
     }
 
     conda 'bioconda::liftoff=1.6.3'
@@ -16,12 +16,14 @@ process LIFTOFF {
     path source_assembly
     path source_gff, stageAs: 'input_source.gff3'
     val prefix
+    val use_copies
 
     output:
     path "${params.sample_name}_${prefix}_liftoff.gff3",   emit: lifted_gff
     path "${params.sample_name}_${prefix}_unmapped.txt",    emit: unmapped
 
     script:
+    def copies_arg = use_copies ? "-copies -sc ${params.liftoff_sc}" : ''
     """
     cp -L ${source_gff} local_source.gff3
     cp -L ${source_assembly} local_source.fasta
@@ -30,7 +32,8 @@ process LIFTOFF {
         -g local_source.gff3 \
         -o ${params.sample_name}_${prefix}_liftoff.gff3 \
         -u ${params.sample_name}_${prefix}_unmapped.txt \
-        -copies \
+        -s ${params.liftoff_s} \
+        ${copies_arg} \
         -p ${task.cpus} \
         ${target_assembly} \
         local_source.fasta

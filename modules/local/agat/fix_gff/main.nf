@@ -1,7 +1,7 @@
 process AGAT_FIX_GFF {
     tag "${gff.baseName}"
     label 'process_low'
-    publishDir "${params.outdir}/annotation_transfer/liftoff_${prefix}", mode: 'copy'
+    publishDir "${params.outdir}/annotation_transfer/agat", mode: 'copy'
 
     conda 'bioconda::agat=1.4.0'
     container "${ workflow.containerEngine == 'singularity' ?

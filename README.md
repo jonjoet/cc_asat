@@ -1,78 +1,88 @@
 # cc_asat — Assembly Scaffolding and Annotation Transfer
 
-Nextflow DSL2 pipeline for validating and improving microbial de novo assemblies against a reference genome. Supports both fungal (eukaryotic) and bacterial (prokaryotic) genomes. Scaffolds the assembly, closes gaps, transfers annotations from both reference and vendor sources, merges them using identity-based matching, and produces QC reports.
+Nextflow DSL2 pipeline for validating and improving microbial de novo assemblies against a reference genome. Supports fungal and bacterial genomes. Scaffolds the assembly, closes gaps, transfers annotations with identity-based merging, and runs QC.
+
+## Quick Start
+
+### 1. Reference-only annotation transfer
+
+Transfer annotations from a public reference to your assembly (no vendor, no scaffolding):
+
+```bash
+nextflow run main.nf -entry ANNOTATION_TRANSFER_ONLY \
+    --assembly      my_assembly.fasta \
+    --reference     ref.fasta \
+    --reference_gff ref.gff3 \
+    --organism_type fungal \
+    --sample_name   my_strain \
+    -profile        docker
+```
+
+### 2. Full workflow with vendor merge
+
+Scaffold, gap-close, and merge reference + vendor annotations:
+
+```bash
+nextflow run main.nf \
+    --assembly       assembly.fasta \
+    --reference      ref.fasta \
+    --reference_gff  ref.gff3 \
+    --vendor_gff     vendor.gff \
+    --organism_type  fungal \
+    --reads          reads.fastq.gz \
+    --sample_name    my_strain \
+    -profile         docker
+```
+
+### 3. Iterative run (using previous output as reference)
+
+Feed the iterative-safe merged GFF from a previous run back as reference input:
+
+```bash
+nextflow run main.nf \
+    --assembly       new_assembly.fasta \
+    --reference      prev_run_final.fasta \
+    --reference_gff  prev_run_merged_iterative.gff3 \
+    --vendor_gff     new_vendor.gff \
+    --organism_type  fungal \
+    --reads          reads.fastq.gz \
+    --liftoff_copies false \
+    --merge_novel_only true \
+    --sample_name    my_strain_v2 \
+    -profile         docker
+```
+
+`--liftoff_copies false` skips the copies Liftoff run (copy suffixes from a prior run would compound). `--merge_novel_only true` passes reference features through unchanged, only adding unmatched vendor features.
 
 ## Pipeline Steps
 
 The default workflow (`EUK_SCAFFOLD_VALIDATION`) runs:
 
-1. **AGAT GFF fixing** (optional, on by default) — Standardises input GFF files using `agat_convert_sp_gxf2gxf.pl`. Controlled by `--fix_reference_gff` and `--fix_vendor_gff`.
-
-2. **RagTag Correct** (optional, off by default) — Error-corrects the assembly using long reads. Enable with `--run_correct` (requires `--reads`).
-
+1. **AGAT GFF fixing** (optional) — Standardises input GFF files.
+2. **RagTag Correct** (optional) — Error-corrects the assembly using long reads.
 3. **RagTag Scaffold** — Orders and orients contigs against the reference.
-
-4. **TGS-GapCloser** (conditional) — Closes gaps using long reads. Runs when `--reads` is provided.
-
-5. **RagTag Patch** (optional, off by default) — Fills remaining gaps from reference sequence. Enable with `--fill_gaps_from_ref`.
-
-6. **dnaapler** (conditional) — Reorients circular contigs so dnaA is at position 1. On by default for bacterial genomes, off for fungal. Override with `--reorient_assembly true/false`.
-
-7. **Annotation Transfer** (conditional, requires `--reference_gff`) — For each GFF source (reference and optionally vendor):
-   - **Megagene Filter** — Removes artifactual mega-genes that span many real genes (common AGAT artifact). Configurable via `--megagene_gene_threshold` and `--max_gene_length_bp`.
-   - **Liftoff** — Lifts annotations onto the final assembly.
-   - **Name Fix** (on by default) — Replaces generic feature names (e.g. `gene-1`) with informative alternatives from product/description fields. Controlled by `--fix_generic_names`.
-   - **Annotation Merge** — Symmetric identity-based merge of reference and vendor annotations. Matches genes by reciprocal CDS overlap AND shared identifiers. Produces a single merged GFF with full/partial/unmatched classification.
-
+4. **TGS-GapCloser** (conditional) — Closes gaps using long reads.
+5. **RagTag Patch** (optional) — Fills remaining gaps from reference sequence.
+6. **dnaapler** (conditional) — Reorients circular contigs so dnaA is at position 1.
+7. **Annotation Transfer** (conditional, requires `--reference_gff`) — see below.
 8. **QUAST** — Assembly quality metrics.
 
-An alternative entry point, `ANNOTATION_TRANSFER_ONLY`, runs steps 1, 6 (optional), 7, and 8 on a pre-existing assembly.
+`ANNOTATION_TRANSFER_ONLY` runs steps 1, 6 (optional), 7, and 8 on a pre-existing assembly.
 
-## Quick Start
+### Annotation Transfer
 
-Minimal run (scaffolding + gap closing, no annotations):
-```bash
-nextflow run main.nf \
-    --assembly      assembly.fasta \
-    --reference     ref.fasta \
-    --organism_type fungal \
-    --reads         reads.fastq.gz \
-    -profile        docker
-```
+For each GFF source (reference and optionally vendor):
 
-Full run with annotation transfer and vendor merge:
-```bash
-nextflow run main.nf \
-    --assembly       assembly.fasta \
-    --reference      ref.fasta \
-    --organism_type  fungal \
-    --reads          reads.fastq.gz \
-    --reference_gff  ref.gff3 \
-    --vendor_gff     vendor.gff \
-    -profile         docker
-```
+1. **Megagene Filter** — Removes artifactual mega-genes (common AGAT artifact).
+2. **Liftoff** — Lifts annotations onto the final assembly. Reference runs twice by default: once without `-copies` (primary) and once with `-copies` (copy detection).
+3. **Name Fix** (optional) — Replaces generic feature names with informative alternatives.
+4. **Annotation Merge** — Identity-based merge of reference and vendor lifted GFFs.
 
-Bacterial genome (reorientation enabled by default):
-```bash
-nextflow run main.nf \
-    --assembly       assembly.fasta \
-    --reference      ref.fasta \
-    --organism_type  bacterial \
-    --reads          reads.fastq.gz \
-    --reference_gff  ref.gff3 \
-    -profile         docker
-```
+The dual Liftoff approach produces two merged GFFs when vendor annotations are provided:
+- **Full merge** (`*_merged.gff3`) — Uses the copies Liftoff output. Contains detected duplications. Best for analysis of the current genome.
+- **Iterative merge** (`*_merged_iterative.gff3`) — Uses the primary (no copies) Liftoff output. Clean IDs, safe as reference input for subsequent pipeline runs.
 
-Annotation transfer only (no scaffolding):
-```bash
-nextflow run main.nf -entry ANNOTATION_TRANSFER_ONLY \
-    --assembly      target.fasta \
-    --reference     ref.fasta \
-    --reference_gff ref.gff3 \
-    --vendor_gff    vendor.gff \
-    --organism_type fungal \
-    -profile        docker
-```
+A **copy report** (`*_copy_report.txt`) lists features detected as extra copies.
 
 ## Parameters
 
@@ -106,25 +116,35 @@ nextflow run main.nf -entry ANNOTATION_TRANSFER_ONLY \
 | Parameter | Default | Description |
 |---|---|---|
 | `--skip_annotation_transfer` | `false` | Skip annotation transfer even when `--reference_gff` provided |
-| `--skip_merge` | `false` | Run liftoff but skip merging (debug mode) |
+| `--skip_merge` | `false` | Run Liftoff but skip merging (debug mode) |
 | `--fix_reference_gff` | `true` | Run AGAT on reference GFF before use |
 | `--fix_vendor_gff` | `true` | Run AGAT on vendor GFF before use |
 | `--fix_generic_names` | `true` | Replace generic Name attributes post-Liftoff |
 | `--megagene_gene_threshold` | `5` | Gene overlapping more than this many others is removed |
 | `--max_gene_length_bp` | — | Absolute max gene length in bp (disabled by default) |
 
+### Liftoff Controls
+
+| Parameter | Default | Description |
+|---|---|---|
+| `--liftoff_copies` | `true` | Run dual Liftoff (with and without `-copies`) for copy analysis |
+| `--liftoff_s` | `0.5` | Primary alignment identity threshold (Liftoff default) |
+| `--liftoff_sc` | `0.95` | Copy sequence identity threshold for `-copies` mode |
+
 ### Merge Controls
 
 | Parameter | Default | Description |
 |---|---|---|
-| `--merge_novel_only` | `false` | Novel-only mode: reference features pass through unchanged, only unmatched vendor features are added. Recommended for iterative runs (see below). |
-| `--merge_overlap_threshold` | `0.50` | Reciprocal CDS overlap fraction required for positional match |
-| `--coord_preference` | `reference` | Source of coordinates for merged features (ignored in novel-only mode) |
-| `--description_preference` | `vendor` | Source of Name/product/description for merged features (ignored in novel-only mode) |
+| `--merge_novel_only` | `false` | Novel-only mode: reference features pass through unchanged, only unmatched vendor features are added |
+| `--merge_overlap_threshold` | `0.95` | Reciprocal CDS overlap fraction required for positional match |
+| `--coord_preference` | `reference` | Source of coordinates for merged features |
+| `--description_preference` | `vendor` | Source of Name/product/description for merged features |
 | `--merge_exact_fields` | `ID Name gene locus_tag` | GFF attributes matched as whole strings |
 | `--merge_word_fields` | `product description` | GFF attributes matched word-by-word (set to `none` to disable) |
 | `--merge_word_min_length` | `4` | Minimum word length for word-field matching |
-| `--always_keep_types` | `transposable_element repeat_region LTR_retrotransposon long_terminal_repeat transposon_fragment` | Space-separated feature types never dropped |
+| `--always_keep_types` | *(see below)* | Space-separated feature types always transferred regardless of overlap |
+
+Default `always_keep_types`: `transposable_element repeat_region LTR_retrotransposon long_terminal_repeat transposon_fragment`. Bacterial users may want: `insertion_sequence mobile_element prophage`.
 
 ### General
 
@@ -140,66 +160,51 @@ nextflow run main.nf -entry ANNOTATION_TRANSFER_ONLY \
 
 ```
 results/
-├── correct/                              # RagTag correction (if --run_correct)
-├── scaffold/                             # RagTag scaffolding
-├── gapclosed/                            # TGS-GapCloser (if --reads)
-├── dnaapler/                             # dnaapler reorientation (if enabled)
-├── patch/                                # RagTag patch (if --fill_gaps_from_ref)
-├── annotation_transfer/                  # (if --reference_gff)
-│   ├── megagene_filter_reference/        # megagene filter results
-│   ├── megagene_filter_vendor/           # (if --vendor_gff)
-│   ├── liftoff_reference/               # Liftoff output + AGAT-cleaned GFF
-│   ├── liftoff_vendor/                  # (if --vendor_gff)
-│   ├── fix_names_reference/             # name fix results (if --fix_generic_names)
-│   ├── fix_names_vendor/                # (if --vendor_gff + --fix_generic_names)
-│   └── merged/                          # (if --vendor_gff and not --skip_merge)
-│       ├── {sample}_merged.gff3
-│       └── {sample}_merge_summary.txt
-├── qc/
-│   └── {sample}_quast_results/
-├── final_outputs/                        # Key results
-│   ├── {sample}_final.fasta
-│   ├── {sample}_reference_liftoff.gff3
-│   ├── {sample}_vendor_liftoff.gff3     # if --vendor_gff
-│   └── {sample}_merged.gff3            # if vendor merge ran
-└── pipeline_info/
-    ├── timeline.html
-    ├── report.html
-    ├── trace.txt
-    └── dag.html
+  annotation_transfer/
+    agat/                                # AGAT-fixed GFFs
+    megagene_filter/
+      reference/
+      vendor/                            # if --vendor_gff
+    liftoff/
+      reference/                         # Primary Liftoff (no copies)
+      reference_copies/                  # Copies Liftoff (if --liftoff_copies)
+      vendor/                            # if --vendor_gff
+    copy_analysis/                       # if --liftoff_copies
+      {sample}_copy_report.txt
+    fix_names/                           # if --fix_generic_names
+      reference/
+      reference_copies/
+      vendor/
+    merged/                              # if --vendor_gff and not --skip_merge
+      {sample}_merged.gff3              # Full merge (from copies Liftoff)
+      {sample}_merged_iterative.gff3    # Iterative merge (from primary Liftoff)
+      {sample}_merge_summary.txt
+      {sample}_merge_iterative_summary.txt
+  correct/                               # if --run_correct
+  scaffold/
+  gapclosed/                             # if --reads
+  dnaapler/                              # if reorientation enabled
+  patch/                                 # if --fill_gaps_from_ref
+  qc/
+    {sample}_quast_results/
+  final_outputs/
+    {sample}_final.fasta
+    {sample}_reference_liftoff.gff3      # Primary ref Liftoff (no copies)
+    {sample}_merged.gff3                 # Full merge
+    {sample}_merged_iterative.gff3       # Iterative merge (safe for reuse)
+    {sample}_copy_report.txt             # Copy analysis
+  pipeline_info/
 ```
 
 ### Merge Summary
 
-The merge summary (`{sample}_merge_summary.txt`) reports:
+The merge summary reports:
 - **Full matches**: Genes matched by both CDS overlap and identifier — merged into single features
-- **Partial matches (position only)**: CDS overlap but no shared identifier — both kept, tagged
-- **Partial matches (identifier only)**: Shared identifier but no CDS overlap — both kept, tagged
-- **Unmatched**: Present in only one source — kept as-is with source tag
+- **Partial matches (position only)**: CDS overlap but no shared identifier — both kept
+- **Partial matches (identifier only)**: Shared identifier but no CDS overlap — both kept
+- **Unmatched**: Present in only one source — kept as-is
 
-Each merged feature is tagged with `annotation_source=merged`, `ref_id=`, and `vendor_id=` attributes. Unmatched and partial features are tagged with `annotation_source=reference` or `annotation_source=vendor`.
-
-### Iterative Runs (Using Pipeline Output as Input)
-
-The pipeline's merged GFF and final FASTA can be fed back as the reference for a subsequent run. Use `--merge_novel_only` and `--fix_generic_names false` to do this safely:
-
-```bash
-nextflow run main.nf \
-    --assembly       new_assembly.fasta \
-    --reference      prev_run_final.fasta \
-    --reference_gff  prev_run_merged.gff3 \
-    --vendor_gff     new_vendor.gff \
-    --merge_novel_only true \
-    --fix_generic_names false \
-    --organism_type  fungal \
-    -profile         docker
-```
-
-In novel-only mode, reference features pass through unchanged and only vendor features with no match (full or partial) to any reference feature are added. This preserves curated annotations from previous runs while still discovering genuinely novel features from the new vendor source.
-
-`--fix_generic_names false` is needed because the name-fixing step uses gffutils, which can crash on duplicate feature IDs produced by Liftoff's `-copies` mode. Since names were already fixed in the first run, re-fixing is unnecessary.
-
-Without `--merge_novel_only`, the full symmetric merge would produce stale metadata attributes and duplicated features across rounds — use the full merge only for first-time runs where both annotation sources are independent.
+Features are tagged with `annotation_source=merged|reference|vendor` and, for merged features, `ref_id=` and `vendor_id=` attributes.
 
 ## Profiles
 
@@ -210,10 +215,10 @@ Without `--merge_novel_only`, the full symmetric merge would produce stale metad
 | `singularity` | Singularity only |
 | `singularity_conda` | Singularity + Conda fallback (HPC) |
 | `conda` | Conda only |
-| `test` | Test defaults (`sample_name=test_sample`, `outdir=test_results`) |
+| `test` | Test defaults |
 
 ## Requirements
 
 - Nextflow >= 23.04.0
-- Docker, Singularity, or Conda for process execution
+- Docker, Singularity, or Conda
 - Target scale: yeast (~12 Mb, ~6000 genes) and bacterial (~1-10 Mb) genomes

@@ -3,7 +3,7 @@ process MERGE_ANNOTATIONS {
     label 'process_low'
     publishDir "${params.outdir}/annotation_transfer/merged", mode: 'copy'
     publishDir "${params.outdir}/final_outputs", mode: 'copy', saveAs: { filename ->
-        filename.endsWith('_merged.gff3') ? filename : null
+        filename.endsWith('.gff3') ? filename : null
     }
 
     container "${ workflow.containerEngine == 'singularity' ?
@@ -13,20 +13,22 @@ process MERGE_ANNOTATIONS {
     input:
     path ref_gff, stageAs: 'ref_liftoff_output.gff3'
     path vendor_gff, stageAs: 'vendor_liftoff_output.gff3'
+    val merge_label
 
     output:
-    path "${params.sample_name}_merged.gff3",          emit: merged_gff
-    path "${params.sample_name}_merge_summary.txt",    emit: merge_summary
+    path "${params.sample_name}_merged${merge_label ? '_' + merge_label : ''}.gff3",       emit: merged_gff
+    path "${params.sample_name}_merge${merge_label ? '_' + merge_label : ''}_summary.txt", emit: merge_summary
 
     script:
+    def label_suffix = merge_label ? "_${merge_label}" : ''
     def always_keep_arg = params.always_keep_types ? "--always-keep-types '${params.always_keep_types}'" : ''
     def novel_only_arg = params.merge_novel_only ? '--novel-only' : ''
     """
     merge_annotations.py \\
         --reference ref_liftoff_output.gff3 \\
         --vendor vendor_liftoff_output.gff3 \\
-        --output ${params.sample_name}_merged.gff3 \\
-        --summary ${params.sample_name}_merge_summary.txt \\
+        --output ${params.sample_name}_merged${label_suffix}.gff3 \\
+        --summary ${params.sample_name}_merge${label_suffix}_summary.txt \\
         --overlap-threshold ${params.merge_overlap_threshold} \\
         --coord-preference ${params.coord_preference} \\
         --description-preference ${params.description_preference} \\
