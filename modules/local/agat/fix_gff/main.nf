@@ -1,8 +1,6 @@
 process AGAT_FIX_GFF {
     tag "${gff.baseName}"
     label 'process_low'
-    publishDir "${params.outdir}/annotation_transfer/agat", mode: 'copy'
-
     conda 'bioconda::agat=1.4.0'
     container "${ workflow.containerEngine == 'singularity' ?
         'https://depot.galaxyproject.org/singularity/agat:1.4.0--pl5321hdfd78af_0' :

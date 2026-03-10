@@ -1,8 +1,6 @@
 process TGS_GAPCLOSER {
     tag "${params.sample_name}"
     label 'process_high'
-    publishDir "${params.outdir}/gapclosed", mode: 'copy'
-
     conda 'bioconda::tgsgapcloser=1.2.1'
     container "${ workflow.containerEngine == 'singularity' ?
         'https://depot.galaxyproject.org/singularity/tgsgapcloser:1.0.3--h8b12597_0' :

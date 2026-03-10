@@ -1,7 +1,6 @@
-process COLLECT_FINAL_OUTPUTS {
+process SEQTK_SEQ {
     tag "${params.sample_name}"
     label 'process_low'
-    publishDir "${params.outdir}/final_outputs", mode: 'copy'
 
     conda 'bioconda::seqtk=1.4'
     container "${ workflow.containerEngine == 'singularity' ?
@@ -9,13 +8,13 @@ process COLLECT_FINAL_OUTPUTS {
         'quay.io/biocontainers/seqtk:1.4--he4a0461_2' }"
 
     input:
-    path final_assembly
+    path assembly
 
     output:
     path "${params.sample_name}_final.fasta", emit: final_fasta
 
     script:
     """
-    seqtk seq -l 80 ${final_assembly} > ${params.sample_name}_final.fasta
+    seqtk seq -l 80 ${assembly} > ${params.sample_name}_final.fasta
     """
 }

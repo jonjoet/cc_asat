@@ -1,8 +1,6 @@
 process FILTER_MEGAGENES {
     tag "${gff.baseName}"
     label 'process_low'
-    publishDir "${params.outdir}/annotation_transfer/megagene_filter/${prefix}", mode: 'copy'
-
     container "${ workflow.containerEngine == 'singularity' ?
         'https://depot.galaxyproject.org/singularity/gffutils:0.13--pyh7cba7a3_0' :
         'quay.io/biocontainers/gffutils:0.13--pyh7cba7a3_0' }"

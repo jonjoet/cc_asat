@@ -1,11 +1,6 @@
 process MERGE_ANNOTATIONS {
     tag "${params.sample_name}"
     label 'process_low'
-    publishDir "${params.outdir}/annotation_transfer/merged", mode: 'copy'
-    publishDir "${params.outdir}/final_outputs", mode: 'copy', saveAs: { filename ->
-        filename.endsWith('.gff3') ? filename : null
-    }
-
     container "${ workflow.containerEngine == 'singularity' ?
         'https://depot.galaxyproject.org/singularity/gffutils:0.13--pyh7cba7a3_0' :
         'quay.io/biocontainers/gffutils:0.13--pyh7cba7a3_0' }"
