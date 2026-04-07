@@ -1,8 +1,6 @@
 process RESTORE_PATCH_SEQNAMES {
     tag "${params.sample_name}"
     label 'process_low'
-    publishDir "${params.outdir}/patch", mode: 'copy'
-
     input:
     path original_fasta
     path patched_fasta

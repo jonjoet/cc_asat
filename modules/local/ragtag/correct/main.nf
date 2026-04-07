@@ -1,8 +1,6 @@
 process RAGTAG_CORRECT {
     tag "${params.sample_name}"
     label 'process_medium'
-    publishDir "${params.outdir}/correct", mode: 'copy', saveAs: { it.replace('ragtag_correct_out/', '') }
-
     conda 'bioconda::ragtag=2.1.0'
     container "${ workflow.containerEngine == 'singularity' ?
         'https://depot.galaxyproject.org/singularity/ragtag:2.1.0--pyhb7b1952_0' :

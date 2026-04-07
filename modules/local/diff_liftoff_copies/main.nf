@@ -1,9 +1,6 @@
 process DIFF_LIFTOFF_COPIES {
     tag "${params.sample_name}"
     label 'process_low'
-    publishDir "${params.outdir}/annotation_transfer/copy_analysis", mode: 'copy'
-    publishDir "${params.outdir}/final_outputs", mode: 'copy'
-
     container "${ workflow.containerEngine == 'singularity' ?
         'https://depot.galaxyproject.org/singularity/python:3.12' :
         'python:3.12' }"

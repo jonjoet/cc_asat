@@ -3,7 +3,7 @@ include { SAMTOOLS_FAIDX       } from '../modules/local/samtools/faidx/main'
 include { RAGTAG_PATCH              } from '../modules/local/ragtag/patch/main'
 include { RESTORE_PATCH_SEQNAMES   } from '../modules/local/restore_patch_seqnames/main'
 include { QUAST                } from '../modules/local/quast/main'
-include { COLLECT_FINAL_OUTPUTS } from '../modules/local/collect_final_outputs/main'
+include { SEQTK_SEQ            } from '../modules/local/seqtk/seq/main'
 include { AGAT_FIX_GFF as AGAT_FIX_REFERENCE_GFF } from '../modules/local/agat/fix_gff/main'
 include { AGAT_FIX_GFF as AGAT_FIX_VENDOR_GFF    } from '../modules/local/agat/fix_gff/main'
 include { SCAFFOLDING          } from '../subworkflows/local/scaffolding'
@@ -65,8 +65,8 @@ workflow EUK_SCAFFOLD_VALIDATION {
         ch_final = DNAAPLER.out.reoriented
     }
 
-    // ---- Publish wrapped final FASTA to final_outputs/ ----
-    COLLECT_FINAL_OUTPUTS(ch_final)
+    // ---- Wrap final FASTA to 80 cols for broad tool compatibility ----
+    SEQTK_SEQ(ch_final)
 
     // ---- Annotation transfer (conditional) ----
     def run_annotation_transfer = params.reference_gff && !params.skip_annotation_transfer

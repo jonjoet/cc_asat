@@ -1,8 +1,6 @@
 process QUAST {
     tag "${params.sample_name}"
     label 'process_low'
-    publishDir "${params.outdir}/qc", mode: 'copy'
-
     conda 'bioconda::quast=5.2.0'
     container "${ workflow.containerEngine == 'singularity' ?
         'https://depot.galaxyproject.org/singularity/quast:5.2.0--py39pl5321h4e691d4_3' :

@@ -1,11 +1,6 @@
 process LIFTOFF {
     tag "${params.sample_name}"
     label 'process_medium'
-    publishDir "${params.outdir}/annotation_transfer/liftoff/${prefix}", mode: 'copy'
-    publishDir "${params.outdir}/final_outputs", mode: 'copy', saveAs: { filename ->
-        filename.endsWith('_liftoff.gff3') && prefix == 'reference' ? filename : null
-    }
-
     conda 'bioconda::liftoff=1.6.3'
     container "${ workflow.containerEngine == 'singularity' ?
         'https://depot.galaxyproject.org/singularity/liftoff:1.6.3--pyhdfd78af_0' :
