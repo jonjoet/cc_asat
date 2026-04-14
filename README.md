@@ -56,27 +56,31 @@ nextflow run main.nf \
 
 ## Pipeline Steps
 
-The default workflow (`EUK_SCAFFOLD_VALIDATION`) runs:
+The default workflow (`EUK_SCAFFOLD_VALIDATION`) has two logical tracks — assembly processing and annotation transfer — plus a QC step.
 
-1. **AGAT GFF fixing** (optional) — Standardises input GFF files.
-2. **RagTag Correct** (optional) — Error-corrects the assembly using long reads.
-3. **RagTag Scaffold** — Orders and orients contigs against the reference.
-4. **TGS-GapCloser** (conditional) — Closes gaps using long reads.
-5. **RagTag Patch** (optional) — Fills remaining gaps from reference sequence.
-6. **dnaapler** (conditional) — Reorients circular contigs so dnaA is at position 1.
-7. **Annotation Transfer** (conditional, requires `--reference_gff`) — see below.
-8. **QUAST** — Assembly quality metrics.
+### Assembly processing
 
-`ANNOTATION_TRANSFER_ONLY` runs steps 1, 6 (optional), 7, and 8 on a pre-existing assembly.
+1. **RagTag Correct** (optional) — Error-corrects the assembly using long reads.
+2. **RagTag Scaffold** — Orders and orients contigs against the reference.
+3. **TGS-GapCloser** (conditional on `--reads`) — Closes gaps using long reads.
+4. **RagTag Patch** (optional) — Fills remaining gaps from reference sequence.
+5. **dnaapler** (conditional) — Reorients circular contigs to a canonical start (dnaA for bacterial chromosomes, other markers via mode selection).
+6. **seqtk seq** — Wraps the final FASTA to 80 columns for broad tool compatibility.
+
+Once the final assembly is produced, **annotation transfer** runs if `--reference_gff` was provided (see the next subsection for details), and **QUAST** runs at the end to report assembly metrics (plus gene-structure metrics when a reference GFF is available).
+
+`ANNOTATION_TRANSFER_ONLY` skips assembly processing entirely, optionally applies dnaapler, then runs annotation transfer and QUAST on a pre-existing assembly.
 
 ### Annotation Transfer
 
-For each GFF source (reference and optionally vendor):
+For each input GFF (reference, and optionally vendor):
 
-1. **Megagene Filter** — Removes artifactual mega-genes (common AGAT artifact).
-2. **Liftoff** — Lifts annotations onto the final assembly. Reference runs twice by default: once without `-copies` (primary) and once with `-copies` (copy detection).
-3. **Name Fix** (optional) — Replaces generic feature names with informative alternatives.
-4. **Annotation Merge** — Identity-based merge of reference and vendor lifted GFFs.
+1. **AGAT GFF fix** (optional, per input) — Standardises the GFF so downstream tools behave predictably. Controlled by `--fix_reference_gff` and `--fix_vendor_gff` (both default `true`).
+2. **Megagene Filter** — Removes artifactual mega-genes (common AGAT artifact).
+3. **Liftoff** — Lifts annotations onto the final assembly. The reference is lifted twice by default: once without `-copies` (primary, iterative-safe) and once with `-copies` (copy detection). Vendor is lifted once.
+4. **Name Fix** (optional) — Replaces generic feature names with informative alternatives.
+
+If `--vendor_gff` is provided, the reference and vendor lifted GFFs are merged by identity (see below).
 
 The dual Liftoff approach produces two merged GFFs when vendor annotations are provided:
 - **Full merge** (`*_merged.gff3`) — Uses the copies Liftoff output. Contains detected duplications. Best for analysis of the current genome.
