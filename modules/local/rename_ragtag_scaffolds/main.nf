@@ -1,7 +1,9 @@
 process RENAME_RAGTAG_SCAFFOLDS {
     tag "${params.sample_name}"
     label 'process_single'
-    container 'python:3.12'
+    container "${ workflow.containerEngine == 'singularity' ?
+        'https://depot.galaxyproject.org/singularity/python:3.12' :
+        'python:3.12' }"
 
     input:
     path scaffold
