@@ -4,15 +4,28 @@ Nextflow DSL2 pipeline for validating and improving microbial de novo assemblies
 
 ## Quick Start
 
-### 1. Reference-only annotation transfer
+### 1. Annotation transfer only (no scaffolding)
 
-Transfer annotations from a public reference to your assembly (no vendor, no scaffolding):
+Transfer annotations from a reference to your assembly, optionally merging vendor annotations:
 
 ```bash
 nextflow run main.nf -entry ANNOTATION_TRANSFER_ONLY \
     --assembly      my_assembly.fasta \
     --reference     ref.fasta \
     --reference_gff ref.gff3 \
+    --organism_type fungal \
+    --sample_name   my_strain \
+    -profile        docker
+```
+
+To merge vendor annotations alongside the reference lift:
+
+```bash
+nextflow run main.nf -entry ANNOTATION_TRANSFER_ONLY \
+    --assembly      my_assembly.fasta \
+    --reference     ref.fasta \
+    --reference_gff ref.gff3 \
+    --vendor_gff    vendor.gff \
     --organism_type fungal \
     --sample_name   my_strain \
     -profile        docker
