@@ -17,6 +17,7 @@ workflow ANNOTATION_TRANSFER {
     reference_gff      // reference GFF3
     original_assembly  // original de novo assembly FASTA (source for vendor annotations)
     vendor_gff         // vendor GFF3 or null sentinel
+    run_vendor_liftoff // whether to lift vendor GFF (false when assembly is unchanged)
 
     main:
     // --- Megagene filtering (reference) ---
@@ -66,14 +67,19 @@ workflow ANNOTATION_TRANSFER {
         FILTER_MEGAGENES_VENDOR(vendor_gff, 'vendor')
         ch_vendor_gff_filtered = FILTER_MEGAGENES_VENDOR.out.filtered_gff
 
-        LIFTOFF_VENDOR(final_assembly, original_assembly, ch_vendor_gff_filtered, 'vendor', false)
+        if (run_vendor_liftoff) {
+            LIFTOFF_VENDOR(final_assembly, original_assembly, ch_vendor_gff_filtered, 'vendor', false)
+            ch_vendor_after_liftoff = LIFTOFF_VENDOR.out.lifted_gff
+        } else {
+            ch_vendor_after_liftoff = ch_vendor_gff_filtered
+        }
 
         // Optional name fix (vendor)
         if (params.fix_generic_names) {
-            FIX_GFF_NAMES_VENDOR(LIFTOFF_VENDOR.out.lifted_gff, 'vendor')
+            FIX_GFF_NAMES_VENDOR(ch_vendor_after_liftoff, 'vendor')
             ch_vendor_lifted_final = FIX_GFF_NAMES_VENDOR.out.fixed_gff
         } else {
-            ch_vendor_lifted_final = LIFTOFF_VENDOR.out.lifted_gff
+            ch_vendor_lifted_final = ch_vendor_after_liftoff
         }
         ch_vendor_lifted = ch_vendor_lifted_final
 

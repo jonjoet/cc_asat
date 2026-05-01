@@ -89,7 +89,8 @@ workflow EUK_SCAFFOLD_VALIDATION {
             ch_reference,
             ch_reference_gff,
             ch_assembly,
-            ch_vendor_gff
+            ch_vendor_gff,
+            true
         )
 
         // QUAST runs after annotation transfer completes

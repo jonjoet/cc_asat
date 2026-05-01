@@ -27,9 +27,7 @@ workflow ANNOTATION_TRANSFER_ONLY {
     }
 
     // For vendor annotation merging (optional)
-    ch_original_assembly = params.original_assembly
-        ? Channel.value(file(params.original_assembly, checkIfExists: true))
-        : ch_assembly
+    ch_original_assembly = ch_assembly
 
     ch_vendor_gff_raw = params.vendor_gff
         ? Channel.value(file(params.vendor_gff, checkIfExists: true))
@@ -55,7 +53,8 @@ workflow ANNOTATION_TRANSFER_ONLY {
         ch_reference,
         ch_reference_gff,
         ch_original_assembly,
-        ch_vendor_gff
+        ch_vendor_gff,
+        do_reorient
     )
 
     // ---- QUAST (runs after annotation transfer completes) ----
