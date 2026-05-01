@@ -16,7 +16,7 @@ process MERGE_ANNOTATIONS {
 
     script:
     def label_suffix = merge_label ? "_${merge_label}" : ''
-    def always_keep_arg = params.always_keep_types ? "--always-keep-types '${params.always_keep_types}'" : ''
+    def skip_types_arg = params.merge_skip_types ? "--skip-types '${params.merge_skip_types}'" : ''
     def novel_only_arg = params.merge_novel_only ? '--novel-only' : ''
     """
     merge_annotations.py \\
@@ -30,7 +30,7 @@ process MERGE_ANNOTATIONS {
         --exact-fields '${params.merge_exact_fields}' \\
         --word-fields '${params.merge_word_fields}' \\
         --word-min-length ${params.merge_word_min_length} \\
-        ${always_keep_arg} \\
+        ${skip_types_arg} \\
         ${novel_only_arg}
     """
 }

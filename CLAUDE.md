@@ -18,7 +18,7 @@ claude_context/                  # Implementation plans and design context (not 
 
 - **Nextflow DSL2**: Each process is in its own `modules/local/<tool>/main.nf`. Subworkflows compose processes. Workflows compose subworkflows.
 - **Process naming**: Process names are UPPER_SNAKE_CASE. When aliasing the same process (e.g. AGAT for reference vs vendor), use `include { X as X_VARIANT }`.
-- **Params**: All parameters are defined in `nextflow.config` under `params {}`. Use underscore naming (`sample_name`, not `sampleName`). Params that accept space-separated lists (like `always_keep_types`) are passed as strings.
+- **Params**: All parameters are defined in `nextflow.config` under `params {}`. Use underscore naming (`sample_name`, not `sampleName`). Params that accept space-separated lists (like `merge_skip_types`) are passed as strings.
 - **bin/ scripts**: Python 3 scripts in `bin/` are automatically on PATH inside Nextflow processes. The gffutils-based scripts (`filter_megagenes.py`, `fix_gff_names.py`, `merge_annotations.py`) run in the gffutils BioContainers image. They write progress to stderr and data to stdout/files.
 - **publishDir**: Intermediate results go to descriptive subdirectories under `${params.outdir}/`. Key results are also copied to `final_outputs/` using `saveAs` filters.
 - **Containers**: Each process specifies both Docker and Singularity container URIs. Bioinformatics tools use BioContainers. The three gffutils-based annotation processes share `quay.io/biocontainers/gffutils:0.13--pyh7cba7a3_0`.

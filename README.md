@@ -159,9 +159,7 @@ A **copy report** (`*_copy_report.txt`) lists features detected as extra copies.
 | `--merge_exact_fields` | `ID Name gene locus_tag` | GFF attributes matched as whole strings |
 | `--merge_word_fields` | `product description` | GFF attributes matched word-by-word (set to `none` to disable) |
 | `--merge_word_min_length` | `4` | Minimum word length for word-field matching |
-| `--always_keep_types` | *(see below)* | Space-separated feature types always transferred regardless of overlap |
-
-Default `always_keep_types`: `transposable_element repeat_region LTR_retrotransposon long_terminal_repeat transposon_fragment`. Bacterial users may want: `insertion_sequence mobile_element prophage`.
+| `--merge_skip_types` | `region chromosome source` | Space-separated feature types to exclude from merging (metadata types that span entire sequences) |
 
 ### General
 

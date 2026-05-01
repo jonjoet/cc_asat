@@ -21,7 +21,7 @@ Requires gffutils.
 import argparse
 import re
 import sys
-from collections import defaultdict
+from collections import Counter, defaultdict
 
 import gffutils
 
@@ -192,9 +192,23 @@ def reciprocal_cds_overlap(fp_a, fp_b):
 # Gene collection and spatial indexing
 # ---------------------------------------------------------------------------
 
-def collect_genes(db):
-    """Collect all gene-level features from a database."""
-    return list(db.features_of_type('gene'))
+DEFAULT_SKIP_TYPES = frozenset({'region', 'chromosome', 'source'})
+
+
+def collect_genes(db, skip_types=DEFAULT_SKIP_TYPES):
+    """Collect all top-level features (no Parent attribute) from a database.
+
+    Skips metadata feature types (region, chromosome, source) that span
+    entire sequences and would create spurious matches.
+    """
+    features = []
+    for f in db.all_features():
+        if f.attributes.get('Parent', []):
+            continue
+        if f.featuretype in skip_types:
+            continue
+        features.append(f)
+    return features
 
 
 def build_spatial_index(genes):
@@ -439,7 +453,7 @@ def build_output_lines(resolved_full, partial_pos, partial_id,
                        unmatched_ref, unmatched_vendor,
                        ref_db, vendor_db,
                        coord_pref, desc_pref,
-                       always_keep_types, novel_only=False):
+                       novel_only=False):
     """Build all output GFF3 lines from classification results.
 
     In novel_only mode, reference features pass through unchanged and only
@@ -557,8 +571,14 @@ def write_summary(summary_path, ref_genes, vendor_genes,
     else:
         lines.append('ANNOTATION MERGE SUMMARY')
     lines.append('=' * 60)
-    lines.append(f'Reference genes:    {len(ref_genes)}')
-    lines.append(f'Vendor genes:       {len(vendor_genes)}')
+    ref_type_counts = Counter(f.featuretype for f in ref_genes)
+    vendor_type_counts = Counter(f.featuretype for f in vendor_genes)
+    lines.append(f'Reference features: {len(ref_genes)}')
+    for ftype, count in sorted(ref_type_counts.items()):
+        lines.append(f'  {ftype}: {count}')
+    lines.append(f'Vendor features:    {len(vendor_genes)}')
+    for ftype, count in sorted(vendor_type_counts.items()):
+        lines.append(f'  {ftype}: {count}')
     lines.append('')
     lines.append('Classification:')
     lines.append(f'  Full matches (merged):             {len(resolved_full)}')
@@ -642,8 +662,9 @@ def parse_args():
     p.add_argument('--description-preference', default='vendor',
                    choices=['reference', 'vendor'],
                    help='Source of Name/product/description for merged features (default: vendor)')
-    p.add_argument('--always-keep-types', default=None,
-                   help='Space-separated feature types that are never dropped')
+    p.add_argument('--skip-types', default='region chromosome source',
+                   help='Space-separated feature types to exclude from merging '
+                        '(default: "region chromosome source")')
     p.add_argument('--exact-fields',
                    default=' '.join(DEFAULT_EXACT_FIELDS),
                    help='Space-separated GFF attribute keys matched exactly '
@@ -667,9 +688,7 @@ def parse_args():
 def main():
     args = parse_args()
 
-    always_keep_types = set()
-    if args.always_keep_types:
-        always_keep_types = set(args.always_keep_types.split())
+    skip_types = frozenset(args.skip_types.split()) if args.skip_types else frozenset()
 
     exact_fields = tuple(args.exact_fields.split()) if args.exact_fields.lower() != 'none' else ()
     word_fields = tuple(args.word_fields.split()) if args.word_fields.lower() != 'none' else ()
@@ -682,11 +701,13 @@ def main():
     ref_db = load_db(args.reference, args.reference_label)
     vendor_db = load_db(args.vendor, args.vendor_label)
 
-    # Collect genes
-    ref_genes = collect_genes(ref_db)
-    vendor_genes = collect_genes(vendor_db)
-    print(f"Reference genes: {len(ref_genes)}, Vendor genes: {len(vendor_genes)}",
-          file=sys.stderr)
+    # Collect top-level features
+    ref_genes = collect_genes(ref_db, skip_types=skip_types)
+    vendor_genes = collect_genes(vendor_db, skip_types=skip_types)
+    ref_type_counts = Counter(f.featuretype for f in ref_genes)
+    vendor_type_counts = Counter(f.featuretype for f in vendor_genes)
+    print(f"Reference features: {len(ref_genes)} {dict(ref_type_counts)}", file=sys.stderr)
+    print(f"Vendor features: {len(vendor_genes)} {dict(vendor_type_counts)}", file=sys.stderr)
 
     # Build spatial index for vendor genes
     vendor_by_seqid = build_spatial_index(vendor_genes)
@@ -742,7 +763,7 @@ def main():
         unmatched_ref, unmatched_vendor,
         ref_db, vendor_db,
         args.coord_preference, args.description_preference,
-        always_keep_types, novel_only=args.novel_only,
+        novel_only=args.novel_only,
     )
     write_gff(args.output, entries)
 
