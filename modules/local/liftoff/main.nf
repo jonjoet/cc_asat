@@ -19,9 +19,13 @@ process LIFTOFF {
 
     script:
     def copies_arg = use_copies ? "-copies -sc ${params.liftoff_sc}" : ''
+    def feature_types_arg = params.liftoff_feature_types ? "-f feature_types.txt" : ''
     """
     cp -L ${source_gff} local_source.gff3
     cp -L ${source_assembly} local_source.fasta
+
+    # Write additional feature types file (one type per line) for Liftoff -f
+    printf '%s\\n' ${params.liftoff_feature_types} > feature_types.txt
 
     liftoff \
         -g local_source.gff3 \
@@ -29,6 +33,7 @@ process LIFTOFF {
         -u ${params.sample_name}_${prefix}_unmapped.txt \
         -s ${params.liftoff_s} \
         ${copies_arg} \
+        ${feature_types_arg} \
         -p ${task.cpus} \
         ${target_assembly} \
         local_source.fasta

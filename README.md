@@ -90,7 +90,7 @@ For each input GFF (reference, and optionally vendor):
 
 1. **AGAT GFF fix** (optional, per input) — Standardises the GFF so downstream tools behave predictably. Controlled by `--fix_reference_gff` and `--fix_vendor_gff` (both default `true`).
 2. **Megagene Filter** — Removes artifactual mega-genes (common AGAT artifact).
-3. **Liftoff** — Lifts annotations onto the final assembly. The reference is lifted twice by default: once without `-copies` (primary, iterative-safe) and once with `-copies` (copy detection). Vendor is lifted once.
+3. **Liftoff** — Lifts annotations onto the final assembly, including genes and non-gene features (LTRs, transposable elements, repeats, etc. — see `--liftoff_feature_types`). The reference is lifted twice by default: once without `-copies` (primary, iterative-safe) and once with `-copies` (copy detection). Vendor is lifted once.
 4. **Name Fix** (optional) — Replaces generic feature names with informative alternatives.
 
 If `--vendor_gff` is provided, the reference and vendor lifted GFFs are merged by identity (see below).
@@ -147,6 +147,13 @@ A **copy report** (`*_copy_report.txt`) lists features detected as extra copies.
 | `--liftoff_copies` | `true` | Run dual Liftoff (with and without `-copies`) for copy analysis |
 | `--liftoff_s` | `0.5` | Primary alignment identity threshold (Liftoff default) |
 | `--liftoff_sc` | `0.95` | Copy sequence identity threshold for `-copies` mode |
+| `--liftoff_feature_types` | *(see below)* | Space-separated list of additional parent feature types for Liftoff to lift (beyond `gene`, which is always included) |
+
+By default, Liftoff only lifts `gene` features and their children. The `--liftoff_feature_types` parameter specifies additional top-level feature types to lift. Types not present in the source GFF are silently ignored, so the default list is safe for both fungal and bacterial genomes.
+
+Default `liftoff_feature_types`: `pseudogene LTR_retrotransposon transposable_element repeat_region long_terminal_repeat transposon_fragment insertion_sequence mobile_element prophage CRISPR`.
+
+Feature types follow the [Sequence Ontology](http://www.sequenceontology.org/browser/obob.cgi) (SO) vocabulary used by GFF3. Consult the SO browser to find additional types relevant to your annotation.
 
 ### Merge Controls
 
