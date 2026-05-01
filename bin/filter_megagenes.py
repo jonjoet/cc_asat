@@ -32,12 +32,18 @@ def parse_args():
     return p.parse_args()
 
 
+def _unique_id(feature):
+    fid = feature.attributes.get('ID', [feature.featuretype])[0]
+    return f"{fid}:{feature.seqid}:{feature.start}:{feature.end}"
+
+
 def build_db(gff_path):
     """Build an in-memory gffutils database from a GFF3 file."""
     print(f"Loading {gff_path} into gffutils database...", file=sys.stderr)
     db = gffutils.create_db(
         gff_path,
         ':memory:',
+        id_spec=_unique_id,
         merge_strategy='merge',
         sort_attribute_values=True,
         force=True,
@@ -51,6 +57,7 @@ def find_megagenes(db, gene_threshold, max_length_bp):
     Returns dict of {gene_id: {seqid, start, end, length, overlap_count, reason}}.
     """
     megagenes = {}
+    megagene_features = []
     genes = list(db.features_of_type('gene'))
     print(f"Scanning {len(genes)} genes for megagene artifacts...", file=sys.stderr)
 
@@ -74,6 +81,7 @@ def find_megagenes(db, gene_threshold, max_length_bp):
 
         if reasons:
             megagenes[gene.id] = {
+                'gff_id': gene.attributes['ID'][0],
                 'seqid': gene.seqid,
                 'start': gene.start,
                 'end': gene.end,
@@ -81,16 +89,19 @@ def find_megagenes(db, gene_threshold, max_length_bp):
                 'overlap_count': overlap_count,
                 'reason': '; '.join(reasons),
             }
+            megagene_features.append(gene)
 
-    return megagenes
+    return megagenes, megagene_features
 
 
-def collect_descendants(db, gene_ids):
-    """Collect all descendant feature IDs for a set of gene IDs."""
-    to_remove = set(gene_ids)
-    for gene_id in gene_ids:
+def collect_descendants(db, megagene_features):
+    """Collect internal db keys of megagenes and all their descendants."""
+    to_remove = set()
+    for gene in megagene_features:
+        to_remove.add(gene.id)
+        gid = gene.attributes['ID'][0]
         try:
-            for child in db.children(gene_id, level=None):
+            for child in db.children(gid, level=None):
                 to_remove.add(child.id)
         except gffutils.FeatureNotFoundError:
             pass
@@ -126,7 +137,7 @@ def write_summary(summary_path, megagenes):
             for gene_id, info in sorted(megagenes.items(),
                                          key=lambda x: (x[1]['seqid'], x[1]['start'])):
                 out.write(f"  {info['seqid']}:{info['start']}-{info['end']}  "
-                          f"{gene_id}  length={info['length']}  "
+                          f"{info['gff_id']}  length={info['length']}  "
                           f"overlapping_genes={info['overlap_count']}  "
                           f"reason: {info['reason']}\n")
 
@@ -137,11 +148,11 @@ def main():
     args = parse_args()
 
     db = build_db(args.input)
-    megagenes = find_megagenes(db, args.gene_threshold, args.max_length_bp)
+    megagenes, megagene_features = find_megagenes(db, args.gene_threshold, args.max_length_bp)
 
     if megagenes:
         print(f"Found {len(megagenes)} megagene(s) to remove", file=sys.stderr)
-        ids_to_remove = collect_descendants(db, megagenes.keys())
+        ids_to_remove = collect_descendants(db, megagene_features)
     else:
         print("No megagenes detected", file=sys.stderr)
         ids_to_remove = set()

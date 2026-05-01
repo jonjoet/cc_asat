@@ -67,6 +67,11 @@ def is_generic(value):
     return False
 
 
+def gff_id(feature):
+    """Return the GFF3 ID attribute value (not the internal database key)."""
+    return feature.attributes['ID'][0]
+
+
 def get_attr_first(feature, key):
     """Get the first value of a GFF attribute, or None."""
     vals = feature.attributes.get(key, [])
@@ -86,12 +91,18 @@ def get_description_str(feature):
 # Database loading
 # ---------------------------------------------------------------------------
 
+def _unique_id(feature):
+    fid = feature.attributes.get('ID', [feature.featuretype])[0]
+    return f"{fid}:{feature.seqid}:{feature.start}:{feature.end}"
+
+
 def load_db(gff_path, label):
     """Load a GFF3 file into an in-memory gffutils database."""
     print(f"Loading {label} GFF: {gff_path}", file=sys.stderr)
     db = gffutils.create_db(
         gff_path,
         ':memory:',
+        id_spec=_unique_id,
         merge_strategy='merge',
         sort_attribute_values=True,
         force=True,
@@ -131,7 +142,7 @@ def collect_identifiers(gene, db, exact_fields, word_fields, word_min_length):
 
     _harvest(gene)
     try:
-        for child in db.children(gene.id, level=None):
+        for child in db.children(gff_id(gene), level=None):
             _harvest(child)
     except Exception:
         pass
@@ -151,7 +162,7 @@ def cds_footprint(gene, db):
     """
     positions = set()
     try:
-        cds_features = list(db.children(gene, featuretype='CDS', level=None))
+        cds_features = list(db.children(gff_id(gene), featuretype='CDS', level=None))
     except gffutils.FeatureNotFoundError:
         cds_features = []
 
@@ -361,14 +372,14 @@ def merge_matched_gene(ref_gene, vendor_gene, ref_db, vendor_db,
 
     # Add merge metadata
     merged.attributes['annotation_source'] = ['merged']
-    merged.attributes['ref_id'] = [ref_gene.id]
-    merged.attributes['vendor_id'] = [vendor_gene.id]
+    merged.attributes['ref_id'] = [gff_id(ref_gene)]
+    merged.attributes['vendor_id'] = [gff_id(vendor_gene)]
 
     lines.append(str(merged))
 
     # Merge children: use coord source's children as base
     try:
-        coord_children = list(coord_db.children(coord_gene, level=1,
+        coord_children = list(coord_db.children(gff_id(coord_gene), level=1,
                                                  order_by='start'))
     except gffutils.FeatureNotFoundError:
         coord_children = []
@@ -380,7 +391,7 @@ def merge_matched_gene(ref_gene, vendor_gene, ref_db, vendor_db,
 
         # Recurse into grandchildren
         try:
-            grandchildren = list(coord_db.children(child, level=1,
+            grandchildren = list(coord_db.children(gff_id(child), level=1,
                                                     order_by='start'))
         except gffutils.FeatureNotFoundError:
             grandchildren = []
@@ -414,7 +425,7 @@ def emit_gene_with_children(gene, db, source_tag, extra_note=None):
     lines.append(str(cloned))
 
     try:
-        for child in db.children(gene, level=None, order_by='start'):
+        for child in db.children(gff_id(gene), level=None, order_by='start'):
             cc = _clone_feature(child)
             cc.attributes['annotation_source'] = [source_tag]
             lines.append(str(cc))
@@ -478,22 +489,22 @@ def build_output_lines(resolved_full, partial_pos, partial_id,
 
         # Partial matches (position only) → both kept independently
         for rg, vg, frac in partial_pos:
-            note = f'partial_match:position_only;overlap_frac={frac:.2f};with={vg.id}'
+            note = f'partial_match:position_only;overlap_frac={frac:.2f};with={gff_id(vg)}'
             for line in emit_gene_with_children(rg, ref_db, 'reference', note):
                 entries.append((rg.seqid, rg.start, line))
 
-            note = f'partial_match:position_only;overlap_frac={frac:.2f};with={rg.id}'
+            note = f'partial_match:position_only;overlap_frac={frac:.2f};with={gff_id(rg)}'
             for line in emit_gene_with_children(vg, vendor_db, 'vendor', note):
                 entries.append((vg.seqid, vg.start, line))
 
         # Partial matches (identifier only) → both kept independently
         for rg, vg, ids in partial_id:
             ids_str = ','.join(sorted(ids))
-            note = f'partial_match:identifier_only;matched_ids={ids_str};with={vg.id}'
+            note = f'partial_match:identifier_only;matched_ids={ids_str};with={gff_id(vg)}'
             for line in emit_gene_with_children(rg, ref_db, 'reference', note):
                 entries.append((rg.seqid, rg.start, line))
 
-            note = f'partial_match:identifier_only;matched_ids={ids_str};with={rg.id}'
+            note = f'partial_match:identifier_only;matched_ids={ids_str};with={gff_id(rg)}'
             for line in emit_gene_with_children(vg, vendor_db, 'vendor', note):
                 entries.append((vg.seqid, vg.start, line))
 

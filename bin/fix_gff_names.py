@@ -82,7 +82,7 @@ def find_replacement(feature, db):
 
     # Check children's attributes
     try:
-        children = list(db.children(feature, level=1))
+        children = list(db.children(feature.attributes['ID'][0], level=1))
     except gffutils.FeatureNotFoundError:
         children = []
 
@@ -95,12 +95,18 @@ def find_replacement(feature, db):
     return None, None
 
 
+def _unique_id(feature):
+    fid = feature.attributes.get('ID', [feature.featuretype])[0]
+    return f"{fid}:{feature.seqid}:{feature.start}:{feature.end}"
+
+
 def build_db(gff_path):
     """Build an in-memory gffutils database from a GFF3 file."""
     print(f"Loading {gff_path} into gffutils database...", file=sys.stderr)
     db = gffutils.create_db(
         gff_path,
         ':memory:',
+        id_spec=_unique_id,
         merge_strategy='merge',
         sort_attribute_values=True,
         force=True,
@@ -131,7 +137,7 @@ def fix_names(db):
 
         renames[feature.id] = (replacement, name)
         changes.append((
-            feature.id,
+            feature.attributes['ID'][0],
             feature.featuretype,
             name,
             replacement,
