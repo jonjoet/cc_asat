@@ -151,7 +151,7 @@ A **copy report** (`*_copy_report.txt`) lists features detected as extra copies.
 
 By default, Liftoff only lifts `gene` features and their children. The `--liftoff_feature_types` parameter specifies additional top-level feature types to lift. Types not present in the source GFF are silently ignored, so the default list is safe for both fungal and bacterial genomes.
 
-Default `liftoff_feature_types`: `pseudogene LTR_retrotransposon transposable_element repeat_region long_terminal_repeat transposon_fragment insertion_sequence mobile_element prophage CRISPR`.
+Default `liftoff_feature_types`: `pseudogene LTR_retrotransposon transposable_element repeat_region long_terminal_repeat transposon_fragment insertion_sequence mobile_element mobile_genetic_element prophage CRISPR centromere telomere origin_of_replication regulatory_region`.
 
 Feature types follow the [Sequence Ontology](http://www.sequenceontology.org/browser/obob.cgi) (SO) vocabulary used by GFF3. Consult the SO browser to find additional types relevant to your annotation.
 
