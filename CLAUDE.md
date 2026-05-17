@@ -7,6 +7,7 @@ Nextflow DSL2 pipeline for microbial scaffold validation. Supports both fungal a
 ```
 main.nf                          # Entry points: EUK_SCAFFOLD_VALIDATION, ANNOTATION_TRANSFER_ONLY
 nextflow.config                  # All params, resource config, profiles
+conf/modules.config              # publishDir routing (nf-core pattern)
 workflows/                       # Top-level workflow files
 subworkflows/local/              # Reusable subworkflows (scaffolding, gap_closing, annotation_transfer)
 modules/local/<tool>/main.nf     # One process per module (DSL2 convention)
