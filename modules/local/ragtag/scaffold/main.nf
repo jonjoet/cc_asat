@@ -14,7 +14,6 @@ process RAGTAG_SCAFFOLD {
     path "ragtag_out/ragtag.scaffold.fasta",            emit: scaffold
     path "ragtag_out/ragtag.scaffold.agp",              emit: agp
     path "ragtag_out/ragtag.scaffold.stats",            emit: stats
-    path "ragtag_out/ragtag.scaffold.unplaced.fasta",   emit: unplaced, optional: true
 
     script:
     """
