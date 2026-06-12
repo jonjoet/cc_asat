@@ -74,7 +74,7 @@ The default workflow (`EUK_SCAFFOLD_VALIDATION`) has two logical tracks — asse
 ### Assembly processing
 
 1. **RagTag Correct** (optional) — Error-corrects the assembly using long reads.
-2. **RagTag Scaffold** — Orders and orients contigs against the reference.
+2. **RagTag Scaffold** — Orders and orients contigs against the reference. Contigs RagTag cannot anchor (e.g. plasmids absent from the reference) are kept in the main FASTA and listed in `scaffold/{sample}_unplaced_contigs.tsv`.
 3. **TGS-GapCloser** (conditional on `--reads`) — Closes gaps using long reads.
 4. **RagTag Patch** (optional) — Fills remaining gaps from reference sequence.
 5. **dnaapler** (conditional) — Reorients circular contigs to a canonical start (dnaA for bacterial chromosomes, other markers via mode selection).
@@ -127,6 +127,7 @@ A **copy report** (`*_copy_report.txt`) lists features detected as extra copies.
 | `--run_correct` | `false` | Run RagTag Correct before scaffolding (requires `--reads`) |
 | `--fill_gaps_from_ref` | `false` | Fill remaining gaps from reference after gap closing |
 | `--reorient_assembly` | auto | Run dnaapler; defaults to `true` for bacterial, `false` for fungal |
+| `--scaffold_rename_pattern` | `null` | Optional regex with one capture group to substitute a reference strain prefix on placed scaffolds, keeping the chromosome label (e.g. `'_(Chr[IVXLCDM]+)$'` turns `LEXst001_ChrI` into `{sample}_ChrI`). Unmatched names (plasmids/unplaced contigs) keep their full name with the sample prefix. |
 
 ### Annotation Transfer Controls
 
@@ -204,6 +205,7 @@ results/
       {sample}_merge_iterative_summary.txt
   correct/                               # if --run_correct
   scaffold/
+    {sample}_unplaced_contigs.tsv        # Contigs RagTag left unplaced (also in final_outputs/)
   gapclosed/                             # if --reads
   dnaapler/                              # if reorientation enabled
   patch/                                 # if --fill_gaps_from_ref
