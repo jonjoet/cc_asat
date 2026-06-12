@@ -127,7 +127,7 @@ A **copy report** (`*_copy_report.txt`) lists features detected as extra copies.
 | `--run_correct` | `false` | Run RagTag Correct before scaffolding (requires `--reads`) |
 | `--fill_gaps_from_ref` | `false` | Fill remaining gaps from reference after gap closing |
 | `--reorient_assembly` | auto | Run dnaapler; defaults to `true` for bacterial, `false` for fungal |
-| `--scaffold_rename_pattern` | `null` | Optional regex with one capture group to substitute a reference strain prefix on placed scaffolds, keeping the chromosome label (e.g. `'_(Chr[IVXLCDM]+)$'` turns `LEXst001_ChrI` into `{sample}_ChrI`). Unmatched names (plasmids/unplaced contigs) keep their full name with the sample prefix. |
+| `--scaffold_rename_pattern` | `null` | Optional regex with one capture group to substitute a reference strain prefix on placed scaffolds, keeping the chromosome label. Eukaryotic/yeast (roman numerals): `'_(Chr[IVXLCDM]+)$'` turns `LEXst001_ChrI` into `{sample}_ChrI`. Bacterial (single or numbered chromosome; arabic numerals optional): `'_(Chr[0-9IVXLCDM]*)$'` turns `strain_Chr` into `{sample}_Chr` and also matches `Chr1`/`Chr2`. The pattern keys off your reference's sequence names, so unmatched names (plasmids, unplaced contigs, or accession-named references like `NZ_CP012345.1`) keep their full name with the sample prefix. |
 
 ### Annotation Transfer Controls
 
