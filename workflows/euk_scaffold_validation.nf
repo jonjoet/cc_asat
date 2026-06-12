@@ -34,9 +34,9 @@ workflow EUK_SCAFFOLD_VALIDATION {
     // ---- Scaffolding ----
     if (params.run_correct && params.reads) {
         ch_reads_scaffold = Channel.value(file(params.reads, checkIfExists: true))
-        SCAFFOLDING(ch_assembly, ch_reference, ch_reads_scaffold, true)
+        SCAFFOLDING(ch_assembly, ch_reference, SAMTOOLS_FAIDX.out.fai.first(), ch_reads_scaffold, true)
     } else {
-        SCAFFOLDING(ch_assembly, ch_reference, Channel.value(file('NO_READS')), false)
+        SCAFFOLDING(ch_assembly, ch_reference, SAMTOOLS_FAIDX.out.fai.first(), Channel.value(file('NO_READS')), false)
     }
     ch_scaffolded = SCAFFOLDING.out.scaffold
 
