@@ -295,6 +295,9 @@ Every explicit cap governs every task, including caps below nominal tier floors
 and one CPU. CPU accepts integers or digit strings in 1..2147483647; memory and
 time require positive unit-bearing quantities (for example `512 MB`, `1.5 GB`,
 `30min`, or `1h 30min`). Null and invalid caps fail before any task.
+Clock-format durations such as `01:30:00` are rejected; use `1h 30min` or `90min`.
+Fractional quantities retain Nextflow's native rounding to bytes/milliseconds;
+compound durations round each component before addition.
 
 | Process tier | CPU request | Memory request | Time request |
 |---|---|---|---|

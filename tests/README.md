@@ -43,6 +43,9 @@ bash "$repo/tests/parser_resources/run.sh" --repo "$repo" --evidence "$evidence"
 for parser in v2 unset v1; do
   bash "$repo/tests/parser_resources/run.sh" --repo "$repo" --evidence "$evidence" --mode contract --engine 26.04.6 --parser "$parser"
 done
+for parser in v1 v2 unset; do
+  bash "$repo/tests/parser_resources/run.sh" --repo "$repo" --evidence "$evidence" --mode fractions --engine 26.04.6 --parser "$parser"
+done
 for parser in v1 v2; do
   bash "$repo/tests/parser_resources/run.sh" --repo "$repo" --evidence "$evidence" --mode unsupported --engine 26.04.5 --parser "$parser"
 done
@@ -84,6 +87,12 @@ the harness, never sent as public pipeline parameters.
   approved selector routes, ten flags, three caps, precedence, and nullable
   contexts. Together with four helper startups this gives **132 shared
   parameter startups** across v1/v2.
+- `fractions`: repository-local inexact decimal memory/duration regressions,
+  independent of the shared fixture. CLI/YAML helper batches, config-only exec
+  resolution, and real-entry previews check native rounding, compound durations,
+  unchanged native object identity, overflow/sub-unit rejection and clock-format
+  rejection. Full v1/v2 each use 76 startups; focused unset uses 28, including
+  version calls. These do not alter the 132 shared parameter startup count.
 - `previews`: selector success/invalid/empty/null cases and exact YAML
   whitespace rejection; reorientation auto/false/true contexts and numeric
   migration previews. CLI trailing whitespace is not an oracle because engine
@@ -132,8 +141,11 @@ The source-only tool status is not a runtime pass.
 The 30,000-base reference and assembly are identical. To reproduce their sequence,
 start a 32-bit unsigned LCG with seed 20261005 and repeat
 `state = (1664525 * state + 1013904223) mod 2**32`; choose from `ACGT` using
-`state >> 30`. Replace sequence at zero-based offset 1000 with
-`ATG + ("GCTGAACTG" * 99) + TAA`, preserving total length, and wrap at 80 columns.
+`state >> 30`. Continue that generator for 297 codons, selecting each with
+`(state >> 16) mod 61` from the lexicographically sorted A/C/G/T codons excluding
+TAA, TAG and TGA. Replace sequence at zero-based offset 1000 with
+`ATG + those 297 codons + TAA`, preserving total length, and wrap at 80 columns.
+This nonrepetitive coding sequence supplies unique seeds for default Liftoff mapping.
 The GFFs describe that single gene/mRNA/exon/CDS. Four FASTQ reads are 3000-base
 windows starting at 0, 1500, 3000 and 4500, with `I` quality. The rename inputs
 are separate tiny literal FASTAs. These fixtures are miniature transport and

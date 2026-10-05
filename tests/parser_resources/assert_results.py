@@ -76,6 +76,8 @@ class Driver:
             self.register("lint")
         elif mode == "unsupported":
             self.register("floor", expected="nonzero")
+        elif mode == "fractions":
+            self.fractions()
         elif mode == "contract":
             for profile in ("standard", "docker", "conda", "singularity", "singularity_conda", "test", "test,docker", "docker,test"):
                 self.register("config-" + profile.replace(",", "-"))
@@ -100,8 +102,15 @@ class Driver:
             self.register("RENAME")
         elif mode == "annotation-smoke":
             self.register("ANNOTATION")
+            for flag, value in dict(reorient_assembly=False, fix_reference_gff=False, fix_vendor_gff=False,
+                    liftoff_copies=False, merge_novel_only=True, skip_merge=False, fix_generic_names=True).items():
+                self.coverage_row(dict(id="CONSUMER-" + flag, parameter=flag, organism="fungal"),
+                    "ANNOTATION", "cli", "consumer", value)
             for transport, tag in (("yaml", "null"), ("cli", "zero"), ("yaml", "zero"), ("cli", "positive"), ("yaml", "positive")):
-                self.register("COMMANDS-" + transport + "-" + tag, transport)
+                case = "COMMANDS-" + transport + "-" + tag
+                self.register(case, transport)
+                for flag, value in {"merge_novel_only":False, "max_gene_length_bp":{"null":None, "zero":0, "positive":10000}[tag]}.items():
+                    self.coverage_row(dict(id="CONSUMER-" + flag, parameter=flag), case, transport, "consumer", value)
         self.write_tables()
 
     def write_tables(self):
@@ -290,6 +299,89 @@ class Driver:
         self.detection()
         if self.args.parser != "unset":
             self.helpers()
+
+    def fraction_rows(self):
+        # Local rounding regressions, deliberately separate from the immutable shared fixture.
+        rows = [dict(id="M" + str(i + 1), parameter="max_memory", input=value, expected=count)
+            for i, (value, count) in enumerate((("1.2 GB",1288490189), ("2.2 GB",2362232013),
+                ("0.9 GB",966367642), ("1.7 GB",1825361101), ("15.9 GB",17072495002),
+                ("1.3 GB",1395864371), ("3.3 GB",3543348019), ("7.5 GB",8053063680)))]
+        rows += [dict(id="T" + str(i + 1), parameter="max_time", input=value, expected=count)
+            for i, (value, count) in enumerate((("1.5ms",2), ("1.0005s",1001), ("1.5ms 1.5ms",4),
+                ("1.0005s 1.5ms",1003), ("0.5ms 0.5ms",2), ("1h 30min",5400000)))]
+        rows += [dict(id=key, parameter=param, input=value, diagnostic=error) for key,param,value,error in (
+            ("OVER-M", "max_memory", "8 EB", "E_MEM"),
+            ("OVER-T", "max_time", "9223372036854775808ms", "E_TIME"),
+            ("ZERO-T", "max_time", "0.1ms", "E_TIME"),
+            ("CLOCK", "max_time", "01:30:00", "E_TIME"))]
+        if self.args.parser == "unset":
+            rows = [r for r in rows if r["id"] in ("M1", "T1", "T4", "OVER-M", "OVER-T", "CLOCK")]
+        return rows
+
+    def fractions(self):
+        rows = self.fraction_rows()
+        for transport in ("cli", "yaml"):
+            case = "F-HELPER-" + transport
+            helper_rows = [dict(r, key="fraction_" + str(i), observe_native="diagnostic" not in r) for i,r in enumerate(rows)]
+            helper_rows += [dict(id="NATIVE-" + param, parameter=param, input=value, expected=count,
+                key="native_" + param, native_object=True, observe_native=True)
+                for param,value,count in (("max_memory","1.2 GB",1288490189), ("max_time","1.0005s 1.5ms",1003))]
+            self.register(case, transport)
+            for r in helper_rows:
+                self.coverage_row(r, case, transport, "helper-local", r.get("diagnostic", r.get("expected")))
+            if not self.planning:
+                values = {r["key"]:r["input"] for r in helper_rows}
+                def setup(path):
+                    dump(path / "manifest.json", helper_rows)
+                    dump(path / "inputs.yaml", values)
+                args = ["run", self.repo / "tests/parser_resources/parameters.nf", "-cache", "false", "-work-dir", "{CASE}/work",
+                    "--batch_manifest={CASE}/manifest.json", "--batch_output={CASE}/observed.json"]
+                args += ["-params-file", "{CASE}/inputs.yaml"] if transport == "yaml" else cli_values(values)
+                path, output = self.run(case, args, transport, setup=setup, configs=[self.repo / "nextflow.config", self.safety])
+                self.no_tasks(path)
+                actual = json.loads((path / "observed.json").read_text())
+                assert [r["id"] for r in actual] == [r["id"] for r in helper_rows]
+                for wanted, got in zip(helper_rows, actual):
+                    if "diagnostic" in wanted:
+                        self.diagnostic(got["error"], wanted["diagnostic"], wanted["input"], transport, wanted["parameter"])
+                    else:
+                        assert got.get("value") == got.get("native_value") == wanted["expected"], (wanted, got)
+                        if wanted.get("native_object"):
+                            assert got["native_identity"] is True, got
+                self.passed(case)
+            for r in rows:
+                case = "F-CONFIG-" + r["id"] + "-" + transport
+                expected_exit = "nonzero" if "diagnostic" in r else "zero"
+                self.register(case, transport, expected_exit)
+                if not self.planning:
+                    values = dict(max_cpus=1, max_memory="512 MB", max_time="30min")
+                    values[r["parameter"]] = r["input"]
+                    if "diagnostic" not in r:
+                        cap = [1, r["expected"] if r["parameter"] == "max_memory" else 536870912,
+                            r["expected"] if r["parameter"] == "max_time" else 1800000]
+                        self.resource(case, values, transport, expected_tiers(cap), "resolution_only")
+                    else:
+                        def setup_negative(path):
+                            dump(path / "inputs.yaml", values)
+                        args = ["run", self.repo / "tests/integration/resource_probe.nf", "-cache", "false", "-work-dir", "{CASE}/work",
+                            "--probe_mode=resolution_only", "--outdir={CASE}/results"]
+                        args += ["-params-file", "{CASE}/inputs.yaml"] if transport == "yaml" else cli_values(values)
+                        path, output = self.run(case, args, transport, "nonzero", setup=setup_negative,
+                            configs=[self.repo / "nextflow.config", self.safety])
+                        self.diagnostic(output, r["diagnostic"], r["input"], transport, r["parameter"])
+                        self.no_tasks(path)
+                        assert not list((path / "work").rglob("resolved.json"))
+                        self.passed(case)
+                self.entry("F-ENTRY-" + r["id"] + "-" + transport, transport=transport,
+                    expected=expected_exit, error=(r["parameter"],r["diagnostic"]) if "diagnostic" in r else None,
+                    invalid=r["input"], **{transport:{r["parameter"]:r["input"]}})
+        self.register("F-CONFIG-NATIVE", "config")
+        if not self.planning:
+            config = self.phase / "native.config"
+            config.write_text("params.max_cpus = 1\nparams.max_memory = new nextflow.util.MemoryUnit('1.2 GB')\n"
+                              "params.max_time = new nextflow.util.Duration('1.0005s 1.5ms')\n")
+            self.resource("F-CONFIG-NATIVE", expected=expected_tiers([1,1288490189,1003]),
+                mode="resolution_only", extra_configs=[config])
 
     def precedence(self):
         rows = self.vectors["precedence_cases"]
@@ -603,11 +695,13 @@ class Driver:
     def docker_overlay(self, path):
         self.trace_config(path)
         binary = str(self.repo / "bin")
-        run_options = "-u %s:%s -v %s:%s:ro" % (os.getuid(), os.getgid(), binary, binary)
+        run_options = "-u %s:%s -v %s:%s:ro -v %s:%s:ro" % (
+            os.getuid(), os.getgid(), binary, binary, self.repo, self.repo)
         (path / "docker.config").write_text(
             "process.maxForks = 1\nexecutor.queueSize = 1\nconda.enabled = false\nsingularity.enabled = false\n"
             "docker.enabled = true\ndocker.runOptions = " + repr(run_options) + "\n"
             "process.beforeScript = " + repr('export PATH="' + binary + ':$PATH"') + "\n"
+            "env.PATH = " + repr(binary + ':$PATH') + "\n"
             "report.enabled = false\ntimeline.enabled = false\ndag.enabled = false\n")
         result = subprocess.run(["docker", "version"], text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         (path / "docker-version.txt").write_text(result.stdout)
@@ -619,6 +713,7 @@ class Driver:
             assert reader.fieldnames == ["task_id", "hash", "name", "status", "exit", "cpus", "memory", "time"]
             rows = list(reader)
         assert rows
+        directives = []
         for row in rows:
             assert row["status"] == "COMPLETED" and row["exit"] == "0", row
             request = [int(row[k]) for k in ("cpus", "memory", "time")]
@@ -634,6 +729,14 @@ class Driver:
             assert memory_arg
             multiplier = {"":1, "b":1, "k":1024, "m":1048576, "g":1073741824}[memory_arg[2].lower()]
             assert int(memory_arg[1]) * multiplier == int(row["memory"]), wrapper
+            tier = "single" if "RENAME_RAGTAG" in row["name"] else "medium" if "LIFTOFF" in row["name"] else "low"
+            assert request == expected_tiers(caps)[tier], row
+            directives.append(dict(row, tier=tier, attempt=1, transport="docker"))
+            self.results.append(dict(contract="cc-resource-v1", case=path.name, engine=self.args.engine,
+                parser=self.args.parser, transport="docker", tier=tier, attempt=1, cpus=request[0],
+                memory_bytes=request[1], time_ms=request[2], expectation=json.dumps(expected_tiers(caps)[tier]), status="PASS"))
+        dump(path / "actual-directives.json", directives)
+        self.write_tables()
         return rows
 
     def docker_rename(self):
@@ -707,9 +810,22 @@ class Driver:
 
     def tools(self):
         outcomes = []
+        with (self.phase / "tool-inventory.tsv").open() as handle:
+            inventory = list(csv.DictReader(handle, delimiter="\t"))
+        assert [r["case"] for r in inventory] == ["T-RAGTAG-CORRECT", "T-RAGTAG-SCAFFOLD", "T-RAGTAG-PATCH", "T-LIFTOFF", "T-QUAST", "T-DNAAPLER", "T-TGS"]
+        def fasta_sequence(path):
+            lines = path.read_text().splitlines()
+            assert lines and lines[0].startswith(">"), path
+            ids = [line[1:].split()[0] for line in lines if line.startswith(">")]
+            assert len(ids) == len(set(ids)) == 1, path
+            sequence = "".join(line.strip() for line in lines if not line.startswith(">"))
+            assert sequence and re.fullmatch("[ACGTNacgtn]+", sequence), path
+            return sequence
+        original = fasta_sequence(self.fixture / "assembly.fasta")
         for case in ("T-RAGTAG-CORRECT", "T-RAGTAG-SCAFFOLD", "T-RAGTAG-PATCH", "T-LIFTOFF", "T-QUAST", "T-DNAAPLER", "T-TGS"):
             path = self.phase / case
             source = (path / "source.log").read_text()
+            assert (path / "source-exit.txt").read_text().strip() == "0", case
             assert "SOURCE " in source, "Missing pinned source evidence: " + case
             assert re.search(r"thread|process|worker", source, re.I), case
             command = (path / "command.txt").read_text()
@@ -717,6 +833,7 @@ class Driver:
             code = int((path / "exit-code.txt").read_text())
             status, reason = "RUNTIME_PASS", ""
             if code != 0:
+                assert case in ("T-DNAAPLER", "T-TGS"), "Required tool runtime failed: " + case
                 status = "SOURCE_ONLY_RUNTIME_NOT_VERIFIED"
                 reason = "Bounded miniature runtime exited %s; inspect preserved output and pinned source before accepting the limited substitute." % code
             else:
@@ -724,12 +841,23 @@ class Driver:
                     operation = case.split("-")[-1].lower()
                     fasta = path / ("result/ragtag.%s.fasta" % operation)
                     assert fasta.is_file() and fasta.stat().st_size > 0, case
-                    assert fasta.read_text().startswith(">")
+                    assert fasta_sequence(fasta) == original, case
                     agp = path / ("result/ragtag.%s.agp" % operation)
-                    assert agp.is_file() and any(not l.startswith("#") and len(l.split("\t")) == 9 for l in agp.read_text().splitlines()), case
+                    parts = [l.split("\t") for l in agp.read_text().splitlines() if l and not l.startswith("#")]
+                    assert parts and all(len(p) == 9 for p in parts), case
+                    end = 0
+                    for index, p in enumerate(parts, 1):
+                        assert int(p[1]) == end + 1 and int(p[3]) == index and p[4] == "W", p
+                        assert int(p[2]) - int(p[1]) == int(p[7]) - int(p[6]) and p[8] in ("+", "-"), p
+                        end = int(p[2])
+                    assert end == len(original), case
                 elif case == "T-LIFTOFF":
                     text = (path / "lifted.gff3").read_text()
                     assert "\tgene\t" in text and any(l.startswith("chr1\t") for l in text.splitlines())
+                    features = [l.split("\t") for l in text.splitlines() if l and not l.startswith("#")]
+                    assert {r[2] for r in features} == {"gene", "mRNA", "exon", "CDS"}
+                    assert all(len(r) == 9 and r[0] == "chr1" and r[3:5] == ["1001", "1897"] for r in features)
+                    assert not (path / "unmapped.txt").read_text().strip()
                 elif case == "T-QUAST":
                     assert "fixture" in (path / "result/report.tsv").read_text()
                 elif case == "T-DNAAPLER":
@@ -737,15 +865,19 @@ class Driver:
                     if not out.exists():
                         status, reason = "SOURCE_ONLY_RUNTIME_NOT_VERIFIED", "No marker in deterministic fixture; expected reoriented FASTA absent."
                     else:
-                        original = "".join(l.strip() for l in (self.fixture / "assembly.fasta").read_text().splitlines() if not l.startswith(">"))
-                        observed = "".join(l.strip() for l in out.read_text().splitlines() if not l.startswith(">"))
+                        observed = fasta_sequence(out)
                         reverse = original.translate(str.maketrans("ACGT", "TGCA"))[::-1]
                         assert len(observed) == len(original) and (observed in original * 2 or observed in reverse * 2)
                 else:
-                    assert (path / "gapclosed.scaff_seqs").is_file() and (path / "gapclosed.scaff_seqs").stat().st_size > 0
-                    assert (path / "gapclosed.gap_fill_detail").is_file()
+                    assert fasta_sequence(path / "gapclosed.scaff_seqs") == original
+                    assert (path / "gapclosed.gap_fill_detail").read_text().strip() == ">chr1\n1\t30000\tS\t1\t30000"
             outcomes.append(dict(case=case, status=status, reason=reason, source=str(path / "source.log"),
                                  command=str(path / "command.txt"), image=str(path / "image.json")))
+            next(r for r in inventory if r["case"] == case)["outcome"] = status
+            with (self.phase / "tool-inventory.tsv").open("w") as handle:
+                writer = csv.DictWriter(handle, fieldnames=["case", "expected", "outcome"], delimiter="\t")
+                writer.writeheader()
+                writer.writerows(inventory)
         dump(self.phase / "tool-outcomes.json", outcomes)
         print(json.dumps(outcomes, indent=2))
         # Source-only outcomes are disclosed, never counted as runtime passes.

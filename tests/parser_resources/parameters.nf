@@ -26,6 +26,11 @@ workflow {
         def record = [id:row.id, parameter:row.parameter, input_type:value == null ? 'null' : value.getClass().name,
                       received:renderValue(value)]
         try {
+            if (row.native_object) {
+                value = row.parameter == 'max_memory'
+                    ? new nextflow.util.MemoryUnit(value.toString())
+                    : new nextflow.util.Duration(value.toString())
+            }
             def normalized = null
             if (row.parameter == 'max_cpus') normalized = normalizeCpu(value)
             else if (row.parameter == 'max_memory') normalized = normalizeMemory(value).toBytes()
@@ -33,6 +38,18 @@ workflow {
             else normalized = normalizeBoolean(row.parameter, value, row.organism)
             record.value = normalized
             record.type = normalized.getClass().name
+            if (row.observe_native) {
+                def nativeValue = row.parameter == 'max_memory'
+                    ? new nextflow.util.MemoryUnit(value.toString())
+                    : new nextflow.util.Duration(value.toString())
+                record.native_value = row.parameter == 'max_memory' ? nativeValue.toBytes() : nativeValue.toMillis()
+                if (row.native_object) {
+                    record.native_identity = row.parameter == 'max_memory'
+                        ? normalizeMemory(value).is(value) : normalizeTime(value).is(value)
+                    // Native objects can stringify at lower precision; observe the object itself.
+                    record.native_value = row.parameter == 'max_memory' ? value.toBytes() : value.toMillis()
+                }
+            }
         } catch (Exception failure) {
             def cause = unwrappedCause(failure)
             record.error = cause.message

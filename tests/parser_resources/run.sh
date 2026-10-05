@@ -17,7 +17,7 @@ evidence=$(realpath -m "$evidence")
 [[ "$evidence" = "$CC_GCEV_RUN_BASE" && "$evidence" = /home/qbk/qbk-code/tmp/cc_gcev/* ]] || exit 2
 case "$evidence/" in "$repo/"*) echo 'Evidence must be outside the checkout' >&2; exit 2;; esac
 [[ "$interface" = selector && "$parser" =~ ^(v1|v2|unset)$ && "$engine" =~ ^26.04.[56]$ ]] || exit 2
-[[ "$mode" =~ ^(static|contract|unsupported|entry-parameters|previews|legacy-entry|tools|docker-rename|annotation-smoke)$ ]] || exit 2
+[[ "$mode" =~ ^(static|contract|fractions|unsupported|entry-parameters|previews|legacy-entry|tools|docker-rename|annotation-smoke)$ ]] || exit 2
 [[ -f "$evidence/RUN.txt" ]] || { echo 'Create evidence RUN.txt before invoking runner' >&2; exit 2; }
 phase="$evidence/$mode-$engine-$parser"
 [[ ! -e "$phase" ]] || { echo "Refusing to overwrite $phase" >&2; exit 2; }
@@ -47,12 +47,20 @@ sha256sum "$jar" > "$phase/jar.sha256"
 # Every command is bounded; a failed runtime remains recorded for the explicit source-only review.
 if [[ "$mode" = tools ]]; then
     fixture="$repo/tests/fixtures/parser_resources"
+    printf 'case\texpected\toutcome\n' > "$phase/tool-inventory.tsv"
+    for case in T-RAGTAG-CORRECT T-RAGTAG-SCAFFOLD T-RAGTAG-PATCH T-LIFTOFF T-QUAST T-DNAAPLER T-TGS; do
+        printf '%s\truntime output and one-worker source validation\tPENDING\n' "$case" >> "$phase/tool-inventory.tsv"
+    done
     run_tool() {
         local name=$1 image=$2 command=$3 help=$4
         local case_dir="$phase/$name"
         mkdir "$case_dir"
         cp "$phase/RUN.txt" "$case_dir/RUN.txt"
         printf 'purpose_case: pinned one-worker tool command %s\n' "$name" >> "$case_dir/RUN.txt"
+        # Index-building tools need writable input neighbours; never index the checkout.
+        mkdir "$case_dir/inputs"
+        cp "$fixture/"* "$case_dir/inputs/"
+        command=${command//"$fixture"/"$case_dir/inputs"}
         if ! docker image inspect "$image" > "$case_dir/image.json" 2> "$case_dir/image-inspect.log"; then
             docker pull "$image" > "$case_dir/pull.log" 2>&1
             docker image inspect "$image" > "$case_dir/image.json"
@@ -87,7 +95,7 @@ PY
         local source_cmd=(docker run --rm --cpus 2 --memory 2g --user "$(id -u):$(id -g)"
             --entrypoint /bin/bash -e PYTHONDONTWRITEBYTECODE=1 -e HOME="$case_dir"
             -v "$repo:$repo:ro" -v "$case_dir:$case_dir" -w "$case_dir" "$image_id"
-            -c "$help; python3 '$case_dir/source.py'")
+            -c "$help; if command -v python3 >/dev/null; then python3 '$case_dir/source.py'; else tool=\$(command -v tgsgapcloser); printf '\\nSOURCE %s\\n' \"\$tool\"; cat \"\$tool\"; fi")
         printf '%q ' "${source_cmd[@]}" > "$case_dir/source-command.txt"
         set +e
         timeout 600 "${source_cmd[@]}" > "$case_dir/source.log" 2>&1
