@@ -1,0 +1,5 @@
+##gff-version 3
+chr1	fixture	gene	1001	1897	.	+	.	ID=gene1;Name=fixture_gene
+chr1	fixture	mRNA	1001	1897	.	+	.	ID=transcript1;Parent=gene1
+chr1	fixture	exon	1001	1897	.	+	.	ID=exon1;Parent=transcript1
+chr1	fixture	CDS	1001	1897	.	+	0	ID=cds1;Parent=transcript1

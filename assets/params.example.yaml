@@ -1,0 +1,27 @@
+# Replace all path placeholders before running.
+# nextflow run main.nf -params-file params.yaml -profile docker
+workflow: full  # alternative: annotation_transfer_only
+assembly: /path/to/assembly.fasta
+reference: /path/to/reference.fasta
+reference_gff: /path/to/reference.gff3  # required by annotation_transfer_only
+organism_type: fungal  # fungal | bacterial; optional on annotation_transfer_only
+# vendor_gff: /path/to/vendor.gff3
+# reads: /path/to/reads.fastq.gz
+sample_name: sample
+outdir: results
+max_cpus: 8
+max_memory: '7 GB'
+max_time: '12h'
+run_correct: false
+fill_gaps_from_ref: false
+skip_annotation_transfer: false
+skip_merge: false
+liftoff_copies: false
+merge_novel_only: false
+fix_generic_names: true
+fix_reference_gff: true
+fix_vendor_gff: true
+# null = bacterial true, fungal/absent organism false; explicit false always wins.
+reorient_assembly: null
+# null and zero both omit the length-limit argument.
+max_gene_length_bp: null

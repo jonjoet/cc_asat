@@ -9,7 +9,7 @@ Nextflow DSL2 pipeline for validating and improving microbial de novo assemblies
 Transfer annotations from a reference to your assembly, optionally merging vendor annotations:
 
 ```bash
-nextflow run main.nf -entry ANNOTATION_TRANSFER_ONLY \
+nextflow run main.nf --workflow annotation_transfer_only \
     --assembly      my_assembly.fasta \
     --reference     ref.fasta \
     --reference_gff ref.gff3 \
@@ -21,7 +21,7 @@ nextflow run main.nf -entry ANNOTATION_TRANSFER_ONLY \
 To merge vendor annotations alongside the reference lift:
 
 ```bash
-nextflow run main.nf -entry ANNOTATION_TRANSFER_ONLY \
+nextflow run main.nf --workflow annotation_transfer_only \
     --assembly      my_assembly.fasta \
     --reference     ref.fasta \
     --reference_gff ref.gff3 \
@@ -69,7 +69,7 @@ nextflow run main.nf \
 
 ## Pipeline Steps
 
-The default workflow (`EUK_SCAFFOLD_VALIDATION`) has two logical tracks — assembly processing and annotation transfer — plus a QC step.
+The default `--workflow full` route (`EUK_SCAFFOLD_VALIDATION`) has two logical tracks — assembly processing and annotation transfer — plus a QC step.
 
 ### Assembly processing
 
@@ -82,7 +82,7 @@ The default workflow (`EUK_SCAFFOLD_VALIDATION`) has two logical tracks — asse
 
 Once the final assembly is produced, **annotation transfer** runs if `--reference_gff` was provided (see the next subsection for details), and **QUAST** runs at the end to report assembly metrics (plus gene-structure metrics when a reference GFF is available).
 
-`ANNOTATION_TRANSFER_ONLY` skips assembly processing entirely, optionally applies dnaapler, then runs annotation transfer and QUAST on a pre-existing assembly.
+`--workflow annotation_transfer_only` skips scaffolding and gap closing, optionally applies dnaapler, then runs annotation transfer and QUAST on a pre-existing assembly. This route requires `--reference_gff`; `--organism_type` may be omitted.
 
 ### Annotation Transfer
 
@@ -109,7 +109,7 @@ A **copy report** (`*_copy_report.txt`) lists features detected as extra copies.
 |---|---|
 | `--assembly` | De novo assembly FASTA |
 | `--reference` | Reference genome FASTA |
-| `--organism_type` | `fungal` or `bacterial` |
+| `--organism_type` | `fungal` or `bacterial`; required for `--workflow full` |
 
 ### Optional Inputs
 
@@ -138,7 +138,7 @@ A **copy report** (`*_copy_report.txt`) lists features detected as extra copies.
 | `--fix_vendor_gff` | `true` | Run AGAT on vendor GFF before use |
 | `--fix_generic_names` | `true` | Replace generic Name attributes post-Liftoff |
 | `--megagene_gene_threshold` | `5` | Gene overlapping more than this many others is removed |
-| `--max_gene_length_bp` | — | Absolute max gene length in bp (disabled by default) |
+| `--max_gene_length_bp` | — | Absolute max gene length in bp (null or zero disables the limit) |
 
 ### Liftoff Controls
 
@@ -174,6 +174,7 @@ Feature types follow the [Sequence Ontology](http://www.sequenceontology.org/bro
 |---|---|---|
 | `--sample_name` | `sample` | Prefix for output files |
 | `--outdir` | `results` | Output directory |
+| `--workflow` | `full` | Exact selector: `full` or `annotation_transfer_only` |
 | `--max_cpus` | auto | CPU limit (auto-detected minus 2) |
 | `--max_memory` | auto | Memory limit (auto-detected minus 2 GB) |
 | `--max_time` | `168h` | Wall time limit |
@@ -241,6 +242,84 @@ Features are tagged with `annotation_source=merged|reference|vendor` and, for me
 
 ## Requirements
 
-- Nextflow >= 23.04.0
+- Nextflow >= 26.04.6 (enforced)
 - Docker, Singularity, or Conda
 - Target scale: yeast (~12 Mb, ~6000 genes) and bacterial (~1-10 Mb) genomes
+
+## Parser migration and parameter files
+
+Nextflow 26.04.6 with parser v2 is the primary supported path, either with
+`NXF_SYNTAX_PARSER=v2` or with that variable unset. V1 is a focused compatibility
+fallback; later Nextflow releases should be checked with the parser/resource gates
+before deployment. Version 26.04.5 is below the enforced floor on both parsers.
+
+Replace old `-entry ANNOTATION_TRANSFER_ONLY` commands with
+`--workflow annotation_transfer_only`. Values are exact and case-sensitive;
+empty, null, and unknown selectors fail before tasks. The default is `full`.
+For older command wrappers, the legacy route remains available on v1:
+
+```bash
+NXF_SYNTAX_PARSER=v1 nextflow run main.nf -entry ANNOTATION_TRANSFER_ONLY \
+    -params-file annotation.yaml -profile docker
+```
+
+Legacy `-entry` always selects annotation-only, including when `--workflow full`
+is present. The selector must still be valid, and the same caps and Booleans are
+validated. It logs: `INFO: Legacy -entry ANNOTATION_TRANSFER_ONLY selects annotation_transfer_only; --workflow does not select the route.`
+
+Start with [assets/params.example.yaml](assets/params.example.yaml), replace its
+path placeholders, and run `nextflow run main.nf -params-file params.yaml -profile docker`.
+CLI parameters override YAML, which overrides config/profile parameters.
+Booleans accept actual YAML Booleans or trimmed, case-insensitive `true`/`false`
+strings. Values such as `yes`, `0`, or `auto` are rejected before tasks.
+
+```yaml
+workflow: annotation_transfer_only
+assembly: my_assembly.fasta
+reference: reference.fasta
+reference_gff: reference.gff3
+liftoff_copies: false
+merge_novel_only: false
+reorient_assembly: null
+```
+
+`reorient_assembly: null` (or omission) selects auto: true for bacterial, false
+for fungal, and false when annotation-only omits `organism_type`. Explicit
+`--reorient_assembly false` stays false even for bacterial input. CLI text `null`
+is not YAML null. Other public Booleans do not accept null.
+
+## Resource requests
+
+Use `--max_cpus`, `--max_memory`, and `--max_time` as the resource interface.
+Every explicit cap governs every task, including caps below nominal tier floors
+and one CPU. CPU accepts integers or digit strings in 1..2147483647; memory and
+time require positive unit-bearing quantities (for example `512 MB`, `1.5 GB`,
+`30min`, or `1h 30min`). Null and invalid caps fail before any task.
+
+| Process tier | CPU request | Memory request | Time request |
+|---|---|---|---|
+| single | 1 | 2 GiB | 1h |
+| low | 25%, rounded up; floor 1 | 25%, rounded up in MiB; floor 1 GiB | 25%, rounded up in ms; floor 1h |
+| medium | 50%, rounded up; floor 2 | 50%, rounded up in MiB; floor 2 GiB | 50%, rounded up in ms; floor 4h |
+| high / unlabelled | maximum | maximum | maximum |
+
+All requests, including floors, are clamped to the effective maxima. Memory is
+truncated to whole MiB before proportional division, matching the shared policy;
+Nextflow GB/MB units are binary. For caps 8 CPUs / 7 GB / 12h, low requests
+2 CPUs / 1792 MB / 3h and medium requests 4 CPUs / 3584 MB / 6h.
+This replaces cc_asat's older fixed low/medium requests and fixed high walltime.
+
+Omitted CPU and memory maxima use launcher detection minus two CPUs/two whole
+GiB, with a minimum of one CPU/one GiB. Memory uses Linux MemTotal, falling back
+to JVM maximum memory; time defaults to 168h. These are launcher heuristics,
+not cgroup or scheduler allocation detection. Explicit caps replace detection.
+
+Limits are per-task requests, not an aggregate pipeline budget. Docker CPU
+shares permit time-sharing and are not a hard CPU quota; tool worker flags use
+the allocated CPUs. Very small positive memory/time caps can cause real task
+failures. Native resource limits also clamp larger `withName` requests; replacing
+`resourceLimits`, replacing the entire project config with `-C`, or overriding
+tool thread flags through `task.ext.args` is outside this supported interface.
+
+See [tests/README.md](tests/README.md) for Docker-only reproduction, parser matrices,
+preserved evidence, and the distinction between previews and actual tool runs.

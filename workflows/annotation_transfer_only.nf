@@ -12,6 +12,10 @@ include { AGAT_FIX_GFF as AGAT_FIX_REFERENCE_GFF } from '../modules/local/agat/f
 include { AGAT_FIX_GFF as AGAT_FIX_VENDOR_GFF    } from '../modules/local/agat/fix_gff/main'
 
 workflow ANNOTATION_TRANSFER_ONLY {
+    take:
+    options
+
+    main:
 
     // ---- Input channels ----
     ch_assembly  = Channel.value(file(params.assembly, checkIfExists: true))
@@ -19,7 +23,7 @@ workflow ANNOTATION_TRANSFER_ONLY {
     ch_reference_gff_raw = Channel.value(file(params.reference_gff, checkIfExists: true))
 
     // ---- AGAT GFF fixing ----
-    if (params.fix_reference_gff) {
+    if (options.fix_reference_gff) {
         AGAT_FIX_REFERENCE_GFF(ch_reference_gff_raw, 'reference')
         ch_reference_gff = AGAT_FIX_REFERENCE_GFF.out.fixed_gff
     } else {
@@ -33,7 +37,7 @@ workflow ANNOTATION_TRANSFER_ONLY {
         ? Channel.value(file(params.vendor_gff, checkIfExists: true))
         : null
 
-    if (params.vendor_gff && params.fix_vendor_gff) {
+    if (params.vendor_gff && options.fix_vendor_gff) {
         AGAT_FIX_VENDOR_GFF(ch_vendor_gff_raw, 'vendor')
         ch_vendor_gff = AGAT_FIX_VENDOR_GFF.out.fixed_gff
     } else {
@@ -41,7 +45,7 @@ workflow ANNOTATION_TRANSFER_ONLY {
     }
 
     // ---- Optional reorientation (on by default for bacterial) ----
-    def do_reorient = params.reorient_assembly != null ? params.reorient_assembly : (params.organism_type == 'bacterial')
+    def do_reorient = options.reorient_assembly
     if (do_reorient) {
         DNAAPLER(ch_assembly)
         ch_assembly = DNAAPLER.out.reoriented
@@ -54,7 +58,8 @@ workflow ANNOTATION_TRANSFER_ONLY {
         ch_reference_gff,
         ch_original_assembly,
         ch_vendor_gff,
-        do_reorient
+        do_reorient,
+        options
     )
 
     // ---- QUAST (runs after annotation transfer completes) ----

@@ -14,7 +14,7 @@ process FILTER_MEGAGENES {
     path "${gff.baseName}_megagene_summary.txt", emit: summary
 
     script:
-    def max_len_arg = params.max_gene_length_bp ? "--max-length-bp ${params.max_gene_length_bp}" : ''
+    def max_len_arg = (params.max_gene_length_bp && !(params.max_gene_length_bp.toString().trim() ==~ /[+-]?0+(?:\.0+)?/)) ? "--max-length-bp ${params.max_gene_length_bp}" : ''
     """
     filter_megagenes.py \\
         --input ${gff} \\

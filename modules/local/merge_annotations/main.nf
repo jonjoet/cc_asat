@@ -9,6 +9,7 @@ process MERGE_ANNOTATIONS {
     path ref_gff, stageAs: 'ref_liftoff_output.gff3'
     path vendor_gff, stageAs: 'vendor_liftoff_output.gff3'
     val merge_label
+    val novel_only
 
     output:
     path "${params.sample_name}_merged${merge_label ? '_' + merge_label : ''}.gff3",       emit: merged_gff
@@ -17,7 +18,7 @@ process MERGE_ANNOTATIONS {
     script:
     def label_suffix = merge_label ? "_${merge_label}" : ''
     def skip_types_arg = params.merge_skip_types ? "--skip-types '${params.merge_skip_types}'" : ''
-    def novel_only_arg = params.merge_novel_only ? '--novel-only' : ''
+    def novel_only_arg = novel_only ? '--novel-only' : ''
     """
     merge_annotations.py \\
         --reference ref_liftoff_output.gff3 \\

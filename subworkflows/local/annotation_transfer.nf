@@ -19,6 +19,8 @@ workflow ANNOTATION_TRANSFER {
     vendor_gff         // vendor GFF3 or null sentinel
     run_vendor_liftoff // whether to lift vendor GFF (false when assembly is unchanged)
 
+    options           // immutable normalized Boolean options
+
     main:
     // --- Megagene filtering (reference) ---
     FILTER_MEGAGENES_REFERENCE(reference_gff, 'reference')
@@ -28,7 +30,7 @@ workflow ANNOTATION_TRANSFER {
     LIFTOFF_REFERENCE(final_assembly, reference, ch_ref_gff_filtered, 'reference', false)
 
     // --- Optional name fix (reference primary) ---
-    if (params.fix_generic_names) {
+    if (options.fix_generic_names) {
         FIX_GFF_NAMES_REFERENCE(LIFTOFF_REFERENCE.out.lifted_gff, 'reference')
         ch_ref_lifted = FIX_GFF_NAMES_REFERENCE.out.fixed_gff
     } else {
@@ -39,11 +41,11 @@ workflow ANNOTATION_TRANSFER {
     ch_ref_lifted_copies = Channel.empty()
     ch_copy_report       = Channel.empty()
 
-    if (params.liftoff_copies) {
+    if (options.liftoff_copies) {
         LIFTOFF_REFERENCE_COPIES(final_assembly, reference, ch_ref_gff_filtered, 'reference_copies', true)
 
         // Name fix (reference copies)
-        if (params.fix_generic_names) {
+        if (options.fix_generic_names) {
             FIX_GFF_NAMES_REFERENCE_COPIES(LIFTOFF_REFERENCE_COPIES.out.lifted_gff, 'reference_copies')
             ch_ref_lifted_copies = FIX_GFF_NAMES_REFERENCE_COPIES.out.fixed_gff
         } else {
@@ -75,7 +77,7 @@ workflow ANNOTATION_TRANSFER {
         }
 
         // Optional name fix (vendor)
-        if (params.fix_generic_names) {
+        if (options.fix_generic_names) {
             FIX_GFF_NAMES_VENDOR(ch_vendor_after_liftoff, 'vendor')
             ch_vendor_lifted_final = FIX_GFF_NAMES_VENDOR.out.fixed_gff
         } else {
@@ -83,15 +85,15 @@ workflow ANNOTATION_TRANSFER {
         }
         ch_vendor_lifted = ch_vendor_lifted_final
 
-        if (!params.skip_merge) {
+        if (!options.skip_merge) {
             // Iterative merge: primary ref (no copies) + vendor — always produced
-            MERGE_ITERATIVE(ch_ref_lifted, ch_vendor_lifted_final, 'iterative')
+            MERGE_ITERATIVE(ch_ref_lifted, ch_vendor_lifted_final, 'iterative', options.merge_novel_only)
             ch_merged_iterative_gff    = MERGE_ITERATIVE.out.merged_gff
             ch_merge_iterative_summary = MERGE_ITERATIVE.out.merge_summary
 
             // Full merge: copies ref + vendor — only if copies enabled
-            if (params.liftoff_copies) {
-                MERGE_FULL(ch_ref_lifted_copies, ch_vendor_lifted_final, '')
+            if (options.liftoff_copies) {
+                MERGE_FULL(ch_ref_lifted_copies, ch_vendor_lifted_final, '', options.merge_novel_only)
                 ch_merged_gff    = MERGE_FULL.out.merged_gff
                 ch_merge_summary = MERGE_FULL.out.merge_summary
             }
