@@ -10,6 +10,7 @@ import re
 import shlex
 import subprocess
 import sys
+import signal
 from datetime import datetime, timezone
 
 FLAGS = {
@@ -100,6 +101,8 @@ class Driver:
                         self.coverage_row(row, case, transport, "helper", row.get("diagnostic", row.get("expected")))
         elif mode == "docker-rename":
             self.register("RENAME")
+        elif mode in ("integration-resources", "scaffolding-preview", "scaffolding-modules", "scaffolding-smoke"):
+            getattr(self, mode.replace("-", "_"))()
         elif mode == "annotation-smoke":
             self.register("ANNOTATION")
             for flag, value in dict(reorient_assembly=False, fix_reference_gff=False, fix_vendor_gff=False,
@@ -174,9 +177,37 @@ class Driver:
         (path / "command.txt").write_text(shlex.join(command) + "\n")
         dump(path / "environment.json", {k: v for k, v in local_env.items() if k.startswith("NXF_") or k in ("HOME", "TMPDIR")})
         with (path / "output.log").open("w") as handle:
-            result = subprocess.run(command, cwd=path, env=local_env, stdout=handle, stderr=subprocess.STDOUT, timeout=600)
+            process = subprocess.Popen(command, cwd=path, env=local_env, stdout=handle, stderr=subprocess.STDOUT, start_new_session=True)
+            try:
+                code = process.wait(timeout=1200 if case.startswith('FULL-') else 600)
+            except subprocess.TimeoutExpired:
+                os.killpg(process.pid, signal.SIGTERM)
+                try:
+                    process.wait(timeout=10)
+                except subprocess.TimeoutExpired:
+                    os.killpg(process.pid, signal.SIGKILL)
+                    process.wait()
+                # Only containers whose working directory belongs to this case.
+                stopped = []
+                if Path('/var/run/docker.sock').exists():
+                    active = subprocess.check_output(['docker', 'ps', '-q'], text=True).split()
+                    for container in active:
+                        info = json.loads(subprocess.check_output(['docker', 'inspect', container], text=True))[0]
+                        if info['Config']['WorkingDir'].startswith(str(path / 'work') + '/'):
+                            stopped.append(info)
+                            subprocess.run(['docker', 'stop', '-t', '10', container], check=True)
+                    dump(path / 'timeout-containers.json', stopped)
+                (path / 'exit-code.txt').write_text('124\n')
+                row['outcome'] = 'TIMEOUT'
+                self.write_tables()
+                raise AssertionError('Timed out: ' + case)
+        result = subprocess.CompletedProcess(command, code)
         (path / "exit-code.txt").write_text(str(result.returncode) + "\n")
         output = (path / "output.log").read_text()
+        if code in (137, -9) or re.search(r'out of memory|OOMKilled|exit status.*137|exit code.*137', output, re.I):
+            row['outcome'] = 'OOM_OR_SUSPECTED_OOM'
+            self.write_tables()
+            raise AssertionError('Stop/report OOM or suspected OOM: ' + case)
         if (result.returncode == 0) != (expected == "zero"):
             row["outcome"] = "FAIL"
             self.write_tables()
@@ -276,7 +307,24 @@ class Driver:
         forbidden = re.compile(r"params\.(?:" + "|".join(FLAGS) + r")\b")
         for f in ("workflows/annotation_transfer_only.nf", "workflows/euk_scaffold_validation.nf", "subworkflows/local/annotation_transfer.nf", "modules/local/merge_annotations/main.nf"):
             assert not forbidden.search((self.repo / f).read_text()), f
-        assert len(audit) == 17, len(audit)
+        expected_modules = {'agat/fix_gff', 'classify_unplaced', 'diff_liftoff_copies', 'dnaapler', 'filter_megagenes',
+            'fix_gff_names', 'liftoff', 'merge_annotations', 'quast', 'ragtag/correct', 'ragtag/patch', 'ragtag/scaffold',
+            'rename_ragtag_scaffolds', 'restore_patch_seqnames', 'samtools/faidx', 'seqtk/fq2fa', 'seqtk/seq', 'tgsgapcloser'}
+        assert {str(Path(p).parent.relative_to('modules/local')) for p in audit} == expected_modules
+        for module in ('rename_ragtag_scaffolds', 'classify_unplaced'):
+            assert "label 'process_single'" in (self.repo / ('modules/local/' + module + '/main.nf')).read_text()
+        obsolete = re.compile(r'NO_FILE|emit:\s*unplaced\b|out\.unplaced\b|ragtag_unplaced\.fasta|ragtag\.scaffold\.unplaced\.fasta')
+        for folder in ('modules', 'subworkflows', 'workflows', 'tests'):
+            for source in (self.repo / folder).rglob('*'):
+                if source.suffix in ('.nf', '.config'):
+                    assert not obsolete.search(source.read_text()), source
+        dump(self.phase / 'module-inventory.json', sorted(expected_modules))
+        for frozen in ('main.nf', 'utils/params.nf', 'docs/plans/2026-10-04-resource-contract.md', 'tests/integration/resource_vectors.json'):
+            # Immutable base bytes supplied in phase evidence by host Git orchestration.
+            assert (self.repo / frozen).read_bytes() == (self.phase / 'base-preserved' / frozen).read_bytes(), frozen
+        current = (self.repo / 'nextflow.config').read_text()
+        base = (self.phase / 'base-preserved/nextflow.config').read_text()
+        assert current[current.index('process {'):] == base[base.index('process {'):]
 
     def config_matrix(self):
         for profile in ("standard", "docker", "conda", "singularity", "singularity_conda", "test", "test,docker", "docker,test"):
@@ -729,7 +777,7 @@ class Driver:
             assert memory_arg
             multiplier = {"":1, "b":1, "k":1024, "m":1048576, "g":1073741824}[memory_arg[2].lower()]
             assert int(memory_arg[1]) * multiplier == int(row["memory"]), wrapper
-            tier = "single" if "RENAME_RAGTAG" in row["name"] else "medium" if "LIFTOFF" in row["name"] else "low"
+            tier = "single" if any(n in row["name"] for n in ('RENAME_RAGTAG', 'CLASSIFY_UNPLACED')) else "medium" if any(n in row["name"] for n in ('LIFTOFF', 'RAGTAG_')) else "low"
             assert request == expected_tiers(caps)[tier], row
             directives.append(dict(row, tier=tier, attempt=1, transport="docker"))
             self.results.append(dict(contract="cc-resource-v1", case=path.name, engine=self.args.engine,
@@ -751,8 +799,8 @@ class Driver:
         rows = self.actual_trace(path, [1,536870912,1800000], [1,536870912,1800000])
         assert len(rows) == 1
         work = next((path / "work").rglob(".command.sh")).parent
-        assert (work / "fixture_scaffolds.fasta").read_text() == ">fixture_chr1\nACGTACGTACGT\n"
-        assert (work / "fixture_unplaced.fasta").read_text() == ">fixture_unplaced1\nGGGAAACCC\n"
+        assert (work / "fixture_scaffolds.fasta").read_text() == ">fixture_chr1\nACGTACGTACGT\n>fixture_unplaced1\nGGGAAACCC\n"
+        assert not list((path / 'results').rglob('*unplaced.fasta'))
         wrapper = (work / ".command.run").read_text()
         binary = str(self.repo / "bin")
         assert binary + ":" + binary in wrapper and 'export PATH="' + binary + ':$PATH"' in wrapper
@@ -775,6 +823,8 @@ class Driver:
         assert any(":QUAST" in n for n in names)
         assert any(":MERGE_ITERATIVE" in n for n in names)
         assert not any(any(x in n for x in ("MERGE_FULL", "COPIES", "DNAAPLER", "AGAT")) for n in names), names
+        assert not any(any(x in n for x in ('SCAFFOLD', 'CLASSIFY_UNPLACED', 'RENAME_RAGTAG')) for n in names)
+        assert not list((path / 'results').rglob('*unplaced_contigs.tsv'))
         gff = path / "results/final_outputs/fixture_merged_iterative.gff3"
         assert gff.is_file() and "\tgene\t" in gff.read_text()
         assert all(line.startswith("chr1\t") for line in gff.read_text().splitlines() if line and not line.startswith("#"))
@@ -807,6 +857,233 @@ class Driver:
                 assert "--max-length-bp" not in commands
             self.passed(case)
 
+
+    def integration_resources(self):
+        for profile in ('docker', 'test,docker'):
+            case = 'config-' + profile.replace(',', '-')
+            self.register(case)
+            if not self.planning:
+                path, output = self.run(case, ['config', self.repo, '-profile', profile, '-flat'])
+                assert 'params.max_cpus' in output and 'process.resourceLimits' in output
+                self.no_tasks(path)
+                self.passed(case)
+        for case, ref, transport in (('R02-cli', 'R02', 'cli'), ('R03-yaml', 'R03', 'yaml')):
+            self.register(case, transport)
+            if not self.planning:
+                row = self.resources[ref]
+                self.resource(case, row['input'], transport, row['expected'], row['mode'])
+        self.register('L02')
+        if not self.planning:
+            config = self.phase / 'L02.config'
+            config.write_text("process { withName: 'ALIAS_PATH:ALIASED' { cpus = 99; memory = '99 GB'; time = '999h' } }\n")
+            self.resource('L02', self.resources['R02']['input'], expected={'alias':[1,536870912,1800000]},
+                          mode='alias', extra_configs=[config])
+
+    def no_first_warning(self, path):
+        for name in ('output.log', '.nextflow.log'):
+            assert 'The operator `first` is useless when applied to a value channel' not in (path / name).read_text(), path
+
+    def scaffolding_preview(self):
+        cases = [
+            dict(case='PREVIEW-DEFAULT', omit_selector=True, cli={'run_correct':False, 'reorient_assembly':False},
+                 membership={'SCAFFOLDING:RAGTAG_CORRECT':False, 'DNAAPLER':False}),
+            dict(case='PREVIEW-CORRECT', cli={'run_correct':True, 'reorient_assembly':False},
+                 yaml={'scaffold_rename_pattern':r'_(Chr[IVXLCDM]+)$'},
+                 membership={'SCAFFOLDING:RAGTAG_CORRECT':True, 'DNAAPLER':False}),
+            dict(case='PREVIEW-BACTERIAL', organism='bacterial', cli={'run_correct':False, 'scaffold_rename_pattern':r'_(Chr[IVXLCDM]+)$'},
+                 membership={'SCAFFOLDING:RAGTAG_CORRECT':False, 'DNAAPLER':True}),
+            dict(case='PREVIEW-ANNOTATION', route='annotation_transfer_only', organism=None,
+                 membership={'SCAFFOLDING:RAGTAG_SCAFFOLD':False, 'SCAFFOLDING:CLASSIFY_UNPLACED':False,
+                             'SCAFFOLDING:RENAME_RAGTAG_SCAFFOLDS':False, 'DNAAPLER':False}),
+            dict(case='PREVIEW-INVALID', cli={'workflow':'bogus'}, expected='nonzero', error=('workflow','E_WORKFLOW'), invalid='bogus')]
+        for spec in cases:
+            if spec.get('route', 'full') == 'full' and not spec.get('error'):
+                spec['membership'].update({'SCAFFOLDING:RAGTAG_SCAFFOLD':True, 'SCAFFOLDING:CLASSIFY_UNPLACED':True,
+                                           'SCAFFOLDING:RENAME_RAGTAG_SCAFFOLDS':True})
+            self.entry(**spec)
+            if not self.planning and spec.get('route','full') == 'full' and not spec.get('error'):
+                self.no_first_warning(self.phase / spec['case'])
+        if not self.planning:
+            wiring = (self.repo / 'subworkflows/local/scaffolding.nf').read_text()
+            assert 'CLASSIFY_UNPLACED(RAGTAG_SCAFFOLD.out.agp, RAGTAG_SCAFFOLD.out.confidence)' in wiring
+            assert 'reference_fai' not in wiring
+            calls = (self.repo / 'workflows/euk_scaffold_validation.nf').read_text()
+            assert 'SCAFFOLDING(ch_assembly, ch_reference, ch_reads_scaffold, true)' in calls
+            assert "SCAFFOLDING(ch_assembly, ch_reference, Channel.value(file('NO_READS')), false)" in calls
+
+    def task_work(self, path, rows, process):
+        selected = [r for r in rows if r['name'].split(':')[-1].split(' (')[0] == process]
+        assert len(selected) == 1, (process, rows)
+        work = list((path / 'work').glob(selected[0]['hash'] + '*'))
+        assert len(work) == 1
+        return selected[0], work[0]
+
+    def publication(self, path, expected):
+        for destination in ('scaffold', 'final_outputs'):
+            actual = path / ('results/' + destination + '/fixture_unplaced_contigs.tsv')
+            assert actual.read_text() == expected, actual
+        assert not list((path / 'results').rglob('*unplaced.fasta'))
+
+    def provenance(self, path, rows, queries):
+        scaffold, sw = self.task_work(path, rows, 'RAGTAG_SCAFFOLD')
+        classifier, cw = self.task_work(path, rows, 'CLASSIFY_UNPLACED')
+        commands = (cw / '.command.sh').read_text()
+        assert '--agp ragtag.scaffold.agp' in commands and '--confidence ragtag.scaffold.confidence.txt' in commands
+        assert '--fai' not in commands
+        observed = []
+        for name in ('ragtag.scaffold.agp', 'ragtag.scaffold.confidence.txt'):
+            emitted, staged = sw / 'ragtag_out' / name, cw / name
+            assert staged.is_symlink(), staged
+            assert staged.resolve() == emitted.resolve(), (staged, emitted)
+            digest = hashlib.sha256(emitted.read_bytes()).hexdigest()
+            assert hashlib.sha256(staged.read_bytes()).hexdigest() == digest
+            published = path / 'results/scaffold' / name
+            assert published.read_bytes() == emitted.read_bytes()
+            observed.append(dict(filename=name, emitted=str(emitted), staged=str(staged),
+                                 readlink_f=str(staged.resolve()), sha256=digest))
+        confidence = (sw / 'ragtag_out/ragtag.scaffold.confidence.txt').read_text().splitlines()
+        assert confidence[0] == 'query\tgrouping_confidence\tlocation_confidence\torientation_confidence'
+        assert {line.split('\t')[0] for line in confidence[1:] if line} == set(queries), confidence
+        assert re.search(r'-t 1\b', (sw / '.command.sh').read_text())
+        dump(path / 'same-task-provenance.json', dict(scaffold=scaffold, classifier=classifier, files=observed))
+
+    def rename_preservation(self, path, original, expected_ids):
+        from importlib.util import spec_from_file_location, module_from_spec
+        spec = spec_from_file_location('scaffolding_helpers', self.repo / 'tests/scaffolding/helpers.py')
+        helper = module_from_spec(spec)
+        spec.loader.exec_module(helper)
+        before = helper.records(original)
+        after = helper.records(path / 'results/scaffold/fixture_scaffolds.fasta')
+        assert [r[0] for r in after] == expected_ids, after
+        assert [r[1] for r in before] == [r[1] for r in after], (before, after)
+        dump(path / 'rename-preservation.json', dict(original_ids=[r[0] for r in before], renamed_ids=expected_ids,
+            lengths=[len(r[1]) for r in after], sequence_sha256=[hashlib.sha256(r[1].encode()).hexdigest() for r in after]))
+        return after
+
+    def generate_inputs(self, path, kind):
+        from importlib.util import spec_from_file_location, module_from_spec
+        spec = spec_from_file_location('scaffolding_helpers', self.repo / 'tests/scaffolding/helpers.py')
+        helper = module_from_spec(spec)
+        spec.loader.exec_module(helper)
+        helper.generate(self.repo, path / 'inputs', kind)
+
+    def scaffolding_modules(self):
+        cases = [('MODULE-MIXED', 'R02'), ('MODULE-QUOTED', 'R03'), ('MODULE-PLACED', 'R02'), ('CORRECTION', None)]
+        if self.args.parser == 'v1':
+            cases = cases[:1]
+        negatives = [('PATTERN-FALSE',False), ('PATTERN-ZERO',0), ('PATTERN-EMPTY',''), ('PATTERN-MAP',{})] if self.args.parser == 'v2' else []
+        for case, ref in cases:
+            self.register(case, 'yaml' if case == 'MODULE-QUOTED' else 'cli')
+        for case, value in negatives:
+            self.register(case, 'yaml', 'nonzero')
+        if self.planning:
+            return
+        for case, ref in cases:
+            cap = [1,4294967296,3600000] if ref is None else [self.resources[ref]['effective'][k] for k in ('cpus','memory_bytes','time_ms')]
+            def setup(path):
+                self.docker_overlay(path)
+                self.generate_inputs(path, case)
+                dump(path / 'params.yaml', dict(self.resources['R03']['input'], scaffold_rename_pattern=r"-(Chr[IVX]+)'$") if case == 'MODULE-QUOTED' else {})
+            values = dict(sample_name='fixture', assembly='{CASE}/inputs/assembly.fasta',
+                test_kind='correct' if ref is None else 'mixed', outdir='{CASE}/results')
+            if ref is None:
+                values.update(reference='{CASE}/inputs/reference.fasta', reads='{CASE}/inputs/reads.fastq',
+                              max_cpus=1, max_memory='4 GB', max_time='1h')
+            else:
+                values.update(agp='{CASE}/inputs/scaffold.agp', confidence='{CASE}/inputs/confidence.txt')
+                if case != 'MODULE-QUOTED':
+                    values.update(self.resources[ref]['input'])
+            path, output = self.run(case, ['run', self.repo / 'tests/scaffolding/modules.nf', '-profile','docker', '-cache','false',
+                '-work-dir','{CASE}/work','-params-file','{CASE}/params.yaml'] + cli_values(values),
+                'yaml' if case == 'MODULE-QUOTED' else 'cli', setup=setup,
+                configs=[self.repo / 'nextflow.config', self.phase / case / 'docker.config', self.phase / case / 'trace-resources.config'])
+            rows = self.actual_trace(path, cap)
+            assert len(rows) == (4 if ref is None else 2), rows
+            self.publication(path, (path / 'inputs/expected.tsv').read_text())
+            if ref is None:
+                self.provenance(path, rows, ['contig_3_1_30000_+'])
+                _, corrected = self.task_work(path, rows, 'RAGTAG_CORRECT')
+                assert re.search(r'-t 1\b', (corrected / '.command.sh').read_text())
+                assert '-u' in (corrected / '.command.sh').read_text()
+                _, sw = self.task_work(path, rows, 'RAGTAG_SCAFFOLD')
+                self.rename_preservation(path, sw / 'ragtag_out/ragtag.scaffold.fasta', ['fixture_chr1'])
+            else:
+                assert {r['name'].split(':')[-1].split(' (')[0] for r in rows} == {'RENAME_RAGTAG_SCAFFOLDS','CLASSIFY_UNPLACED'}
+                self.rename_preservation(path, path / 'inputs/assembly.fasta',
+                    ["fixture_ChrI" if case == 'MODULE-QUOTED' else 'fixture_strain_ChrI', 'fixture_2micron_plasmid'])
+            self.passed(case)
+        for case, value in negatives:
+            def setup(path):
+                self.docker_overlay(path)
+                self.generate_inputs(path, 'MODULE-MIXED')
+                dump(path / 'params.yaml', {'scaffold_rename_pattern':value})
+            args = ['run', self.repo / 'tests/scaffolding/modules.nf', '-profile','docker', '-cache','false', '-work-dir','{CASE}/work',
+                    '-params-file','{CASE}/params.yaml'] + cli_values(dict(self.resources['R02']['input'], sample_name='fixture',
+                    assembly='{CASE}/inputs/assembly.fasta', outdir='{CASE}/results', test_kind='rename'))
+            path, output = self.run(case, args, 'yaml', 'nonzero', setup=setup,
+                configs=[self.repo / 'nextflow.config', self.phase / case / 'docker.config', self.phase / case / 'trace-resources.config'])
+            assert 'ERROR: --scaffold_rename_pattern must be null or a nonempty string.' in output, output
+            assert not list((path / 'results').rglob('*scaffolds.fasta'))
+            assert not list((path / 'work').rglob('fixture_scaffolds.fasta'))
+            self.no_tasks(path)
+            self.passed(case)
+
+    def scaffolding_smoke(self):
+        for case in ('FULL-DEFAULT', 'FULL-PATTERN'):
+            self.register(case)
+        if self.planning:
+            return
+        for case in ('FULL-DEFAULT', 'FULL-PATTERN'):
+            pattern = case == 'FULL-PATTERN'
+            def setup(path):
+                self.docker_overlay(path)
+                self.generate_inputs(path, case)
+            values = dict(workflow='full', assembly='{CASE}/inputs/assembly.fasta', reference='{CASE}/inputs/reference.fasta',
+                reference_gff='{CASE}/inputs/reference.gff3', vendor_gff='{CASE}/inputs/vendor.gff3', sample_name='fixture',
+                organism_type='bacterial' if pattern else 'fungal', run_correct=False, fill_gaps_from_ref=False, liftoff_copies=False,
+                fix_reference_gff=False, fix_vendor_gff=False, fix_generic_names=False, merge_novel_only=True,
+                max_cpus=1, max_memory='4 GB', max_time='1h', outdir='{CASE}/results')
+            if pattern:
+                values['scaffold_rename_pattern'] = r'_(Chr[IVXLCDM]+)$'
+            else:
+                values['reorient_assembly'] = False
+            path, output = self.run(case, ['run', self.repo / 'main.nf', '-profile','docker', '-cache','false', '-work-dir','{CASE}/work'] + cli_values(values),
+                setup=setup, configs=[self.phase / case / 'docker.config', self.phase / case / 'trace-resources.config'])
+            self.no_first_warning(path)
+            rows = self.actual_trace(path, [1,4294967296,3600000])
+            names = {r['name'].split(':')[-1].split(' (')[0] for r in rows}
+            assert names == {'SAMTOOLS_FAIDX', 'RAGTAG_SCAFFOLD', 'RENAME_RAGTAG_SCAFFOLDS', 'CLASSIFY_UNPLACED', 'SEQTK_SEQ',
+                'FILTER_MEGAGENES_REFERENCE', 'FILTER_MEGAGENES_VENDOR', 'LIFTOFF_REFERENCE', 'LIFTOFF_VENDOR', 'MERGE_ITERATIVE', 'QUAST'} | ({'DNAAPLER'} if pattern else set()), names
+            self.provenance(path, rows, ['contig_3' if pattern else 'strain_ChrI'])
+            self.publication(path, (path / 'inputs/expected.tsv').read_text())
+            _, sw = self.task_work(path, rows, 'RAGTAG_SCAFFOLD')
+            expected_ids = ['fixture_ChrI' if pattern else 'fixture_strain_ChrI', 'fixture_2micron_plasmid']
+            renamed = self.rename_preservation(path, sw / 'ragtag_out/ragtag.scaffold.fasta', expected_ids)
+            from importlib.util import spec_from_file_location, module_from_spec
+            spec = spec_from_file_location('scaffolding_helpers', self.repo / 'tests/scaffolding/helpers.py')
+            helper = module_from_spec(spec)
+            spec.loader.exec_module(helper)
+            final = helper.records(path / 'results/final_outputs/fixture_final.fasta')
+            assert [r[0] for r in final] == expected_ids, final
+            if pattern:
+                _, dw = self.task_work(path, rows, 'DNAAPLER')
+                staged = helper.records(dw / 'fixture_scaffolds.fasta')
+                actual = helper.records(dw / 'fixture_reoriented.fasta')
+                assert staged == renamed and actual == final
+                dump(path / 'dnaapler-records.json', dict(input_ids=[r[0] for r in staged], output_ids=[r[0] for r in actual],
+                    input_path=str(dw / 'fixture_scaffolds.fasta'), output_path=str(dw / 'fixture_reoriented.fasta')))
+            for (name, original), (final_name, observed) in zip(renamed, final):
+                assert name == final_name and len(original) == len(observed)
+                reverse = original.translate(str.maketrans('ACGTNacgtn','TGCANtgcan'))[::-1]
+                assert (observed in original * 2 or observed in reverse * 2) if pattern else observed == original
+            assert dict(final)['fixture_2micron_plasmid'] == helper.generated(20261006) if not pattern else True
+            features = [line.split('\t') for line in (path / 'results/final_outputs/fixture_merged_iterative.gff3').read_text().splitlines() if line and not line.startswith('#')]
+            assert features and all(len(r) == 9 and r[0] in expected_ids for r in features)
+            assert {r[0] for r in features if r[2] == 'gene'} == set(expected_ids), features
+            commands = '\n'.join(p.read_text() for p in (path / 'work').rglob('.command.sh'))
+            assert not re.search(r'\s-copies\b|--fai\b', commands)
+            assert re.search(r'\s-p 1\b', commands) and re.search(r'--threads 1\b', commands)
+            self.passed(case)
 
     def tools(self):
         outcomes = []

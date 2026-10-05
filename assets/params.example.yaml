@@ -25,3 +25,7 @@ fix_vendor_gff: true
 reorient_assembly: null
 # null and zero both omit the length-limit argument.
 max_gene_length_bp: null
+# null disables the regex. false/0/empty/map values fail in the rename task.
+scaffold_rename_pattern: null
+# scaffold_rename_pattern: '_(Chr[IVXLCDM]+)$'  # Roman chromosomes
+# scaffold_rename_pattern: '_(Chr[0-9IVXLCDM]*)$'  # bacterial Chr/Chr1/Chr2

@@ -74,7 +74,7 @@ The default `--workflow full` route (`EUK_SCAFFOLD_VALIDATION`) has two logical 
 ### Assembly processing
 
 1. **RagTag Correct** (optional) — Error-corrects the assembly using long reads.
-2. **RagTag Scaffold** — Orders and orients contigs against the reference.
+2. **RagTag Scaffold** — Orders and orients contigs against the reference. Contigs RagTag cannot anchor (e.g. plasmids absent from the reference) are kept in the main FASTA and listed in `scaffold/{sample}_unplaced_contigs.tsv`.
 3. **TGS-GapCloser** (conditional on `--reads`) — Closes gaps using long reads.
 4. **RagTag Patch** (optional) — Fills remaining gaps from reference sequence.
 5. **dnaapler** (conditional) — Reorients circular contigs to a canonical start (dnaA for bacterial chromosomes, other markers via mode selection).
@@ -127,6 +127,7 @@ A **copy report** (`*_copy_report.txt`) lists features detected as extra copies.
 | `--run_correct` | `false` | Run RagTag Correct before scaffolding (requires `--reads`) |
 | `--fill_gaps_from_ref` | `false` | Fill remaining gaps from reference after gap closing |
 | `--reorient_assembly` | auto | Run dnaapler; defaults to `true` for bacterial, `false` for fungal |
+| `--scaffold_rename_pattern` | `null` | Optional Python search regex with exactly one capture group; any matching header (including unplaced) becomes `{sample}_{group1}`. Roman chromosomes: `_(Chr[IVXLCDM]+)$`; bacterial Chr/Chr1/Chr2: `_(Chr[0-9IVXLCDM]*)$`. Unmatched names preserve their full name with the sample prefix. |
 
 ### Annotation Transfer Controls
 
@@ -205,6 +206,7 @@ results/
       {sample}_merge_iterative_summary.txt
   correct/                               # if --run_correct
   scaffold/
+    {sample}_unplaced_contigs.tsv        # Contigs RagTag left unplaced (also in final_outputs/)
   gapclosed/                             # if --reads
   dnaapler/                              # if reorientation enabled
   patch/                                 # if --fill_gaps_from_ref
@@ -326,3 +328,67 @@ tool thread flags through `task.ext.args` is outside this supported interface.
 
 See [tests/README.md](tests/README.md) for Docker-only reproduction, parser matrices,
 preserved evidence, and the distinction between previews and actual tool runs.
+
+## Scaffold names and unplaced evidence
+
+Renaming uses the first whitespace-delimited FASTA ID. It removes one terminal
+scaffold-added `_RagTag`, applies the pattern if it matches, then otherwise adds
+`{sample}_` only if missing. Internal underscores and correction suffixes remain.
+For sample `S`, `contig_3` becomes `S_contig_3`, `2micron_plasmid` becomes
+`S_2micron_plasmid`, and `LEXst001_ChrI` becomes `S_LEXst001_ChrI` by default.
+With the Roman pattern, sample `S288C` and `S288C_R64_ChrI` produce `S288C_ChrI`.
+Original `contig_7_RagTag` becomes RagTag output `contig_7_RagTag_RagTag`, then
+`S_contig_7_RagTag` successfully when unique. This is a single rename of scaffold
+output; no repeat-renaming or fixed-point guarantee applies. Sequence content,
+record order, count and lengths are preserved relative to RagTag output, which
+can join input contigs and add gaps.
+
+```bash
+# Quote the complete regex; equals form also supports leading-hyphen patterns.
+nextflow run main.nf -params-file params.yaml -profile docker \
+    --scaffold_rename_pattern='_(Chr[IVXLCDM]+)$'
+```
+
+`scaffold/{sample}_unplaced_contigs.tsv` and its identical `final_outputs/` copy
+have columns `contig_id`, `object_name`, `length_bp`. Each AGP W component is
+unplaced exactly when its **raw query ID** is absent from the mandatory
+`ragtag.scaffold.confidence.txt` query column, emitted by the same successful
+RagTag 2.1.0 scaffold task. Rows retain AGP W-row order, raw column-6 query ID,
+raw column-1 object ID, and inclusive object span. N/U gaps do not emit rows.
+All-placed results produce a header-only TSV. Confidence is also published under
+`scaffold/`. There is no name/FAI fallback or additional alignment: a query named
+`chr1` against reference `chr1` is placed if confidence contains it and unplaced
+if confidence lacks it. The same-name unplaced case can succeed with another
+query placed on another reference.
+
+The TSV describes scaffolding before gap filling and reorientation, rather than
+final coordinates. Apply the selected rename rule to its raw `object_name` to
+find its scaffold FASTA ID; final GFF seqids match final FASTA IDs. Every unplaced
+sequence stays in the main FASTA through gap closing, patching, DNAAPLER, wrapping,
+QUAST and annotation. With `--run_correct`, raw query IDs are correction-output
+IDs, which may differ from input IDs: `contig_7_1_48000_+` stays that TSV ID and
+becomes `S_contig_7_1_48000_+` by default. Correction coordinate/orientation
+suffixes are retained; no new mapping or suffix-stripping policy is applied.
+
+Hard failures include invalid regex syntax, zero/multiple groups even without a
+match, empty/unmatched captures, duplicate input IDs, convergent final IDs, and
+pattern YAML `false`, `0`, `''`, or `{}`. Use null to disable the pattern. Pattern
+errors surface at the rename task, after RagTag/correction may have run; correct
+the parameters and use `-resume` with the retained work directory. The direct
+rename helper rejects input/output aliases and validates before writing, retaining
+input and pre-existing output on validation failure. Malformed relevant AGP rows
+and missing/malformed/inconsistent confidence also fail before TSV writing.
+Confidence checks enforce its exact four-column header, unique nonempty queries,
+finite numeric scores and query presence among AGP W components; scores are not
+re-thresholded.
+
+Membership records RagTag's placement decision, not biological correctness or an
+unplaced reason. A truncated but well-formed confidence file may omit a row
+undetectably; matching filenames alone do not establish provenance, so the pipeline
+wires both mandatory files directly from one task. Duplicate upstream object
+names can still make RagTag fail. Synthetic all-unplaced helper cases do not
+prove the upstream CLI succeeds when all placements fail.
+
+Historical design context: [fix plan](claude_context/2026-06-12-scaffolding-unplaced-fix-plan.md)
+and [brief](claude_context/cc_asat-scaffolding-unplaced-fix-brief.md).
+The placement rule in these historical documents is superseded by mandatory same-task confidence query-ID membership.

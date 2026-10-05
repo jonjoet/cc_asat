@@ -1,13 +1,14 @@
 include { RAGTAG_CORRECT           } from '../../modules/local/ragtag/correct/main'
 include { RAGTAG_SCAFFOLD          } from '../../modules/local/ragtag/scaffold/main'
 include { RENAME_RAGTAG_SCAFFOLDS  } from '../../modules/local/rename_ragtag_scaffolds/main'
+include { CLASSIFY_UNPLACED        } from '../../modules/local/classify_unplaced/main'
 
 workflow SCAFFOLDING {
     take:
     assembly
     reference
-    reads         // file or null sentinel
-    run_correct   // boolean value channel
+    reads           // file or null sentinel
+    run_correct     // boolean value channel
 
     main:
     if (run_correct) {
@@ -19,13 +20,13 @@ workflow SCAFFOLDING {
 
     RAGTAG_SCAFFOLD(ch_corrected, reference)
 
-    ch_unplaced = RAGTAG_SCAFFOLD.out.unplaced
-        .ifEmpty(file('NO_FILE'))
+    CLASSIFY_UNPLACED(RAGTAG_SCAFFOLD.out.agp, RAGTAG_SCAFFOLD.out.confidence)
 
-    RENAME_RAGTAG_SCAFFOLDS(RAGTAG_SCAFFOLD.out.scaffold, ch_unplaced)
+    RENAME_RAGTAG_SCAFFOLDS(RAGTAG_SCAFFOLD.out.scaffold)
 
     emit:
-    scaffold  = RENAME_RAGTAG_SCAFFOLDS.out.scaffold
-    agp       = RAGTAG_SCAFFOLD.out.agp
-    stats     = RAGTAG_SCAFFOLD.out.stats
+    scaffold      = RENAME_RAGTAG_SCAFFOLDS.out.scaffold
+    agp           = RAGTAG_SCAFFOLD.out.agp
+    stats         = RAGTAG_SCAFFOLD.out.stats
+    unplaced_list = CLASSIFY_UNPLACED.out.unplaced_list   // published via conf/modules.config (scaffold/, final_outputs/)
 }

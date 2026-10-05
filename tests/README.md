@@ -10,14 +10,18 @@ Cache the official Nextflow 26.04.6 and 26.04.5 images before running gates.
 The runner verifies the approved 26.04.6 image ID
 `83bbf3dd9e84ecd4d53a86620d08fe0259bca00a8f59f6f31664eb90033f460f`
 and records full image metadata for both engines. Every invocation uses the
-recorded immutable image ID. It extracts each engine's own packaged JAR into
-evidence to work around root-only image permissions; the copy/hash and actual
-`nextflow -version` output are retained. No host Nextflow fallback.
+recorded immutable image ID. Set `CC_ASAT_NXF_DIST` to an existing verified
+distribution; it is mounted read-only with independent writable state per case.
+The 26.04.6 JAR SHA256 must be
+`2ca0251ae2d749317d9fbe5fe191a1616b5f44b608224268924c71b32f5ed9e2`.
+Never chmod/write/extract into the shared hardlinked binary or copy it per phase.
+The hash and actual `nextflow -version` output are retained. No host fallback.
 
 Light modes use at most four outer CPUs/4 GiB and have no Docker socket.
 `tools` runs pinned tool images directly, one command at a time, with a
-10-minute timeout per invocation. `docker-rename` and `annotation-smoke`
-alone mount the daemon socket into the Nextflow launcher, using the invoking
+10-minute timeout per invocation. `docker-rename`, `annotation-smoke`,
+`scaffolding-modules` and `scaffolding-smoke` mount the daemon socket into the
+Nextflow launcher, using the invoking
 uid/gid and socket group, identical absolute source/evidence mounts, and serial
 task execution. The cached Nextflow image provides the Docker CLI. This access
 is daemon control, not a security sandbox. Do not change daemon configuration
@@ -26,7 +30,8 @@ active repository workers before invoking those modes.
 
 ## Reproduction
 
-Choose a fresh absolute evidence path under `~/qbk-code/tmp/cc_gcev`. Preserve
+Choose a fresh absolute evidence path under `~/qbk-code/tmp/cc_gcev` or
+`~/qbk-code/tmp/cc_asat`. Preserve
 all attempts. The runner refuses existing phase paths and requires the exported
 run base to match `--evidence` exactly.
 
@@ -34,6 +39,7 @@ run base to match `--evidence` exactly.
 repo=$(git rev-parse --show-toplevel)
 evidence="$HOME/qbk-code/tmp/cc_gcev/cc_asat-parser-$(date -u +%Y%m%dT%H%M%SZ)"
 export CC_GCEV_RUN_BASE="$evidence"
+export CC_ASAT_NXF_DIST=/absolute/path/to/verified/framework
 mkdir "$evidence"
 printf 'commit: %s   dirty: %s\nstarted: %s\npurpose: parser/resource acceptance\n' \
   "$(git -C "$repo" rev-parse HEAD)" \
@@ -73,7 +79,7 @@ It is the oracle; no tests generate expected R triples from the product helpers.
 Python's JSON integers are lossless. Fixture layer recipe keys are expanded by
 the harness, never sent as public pipeline parameters.
 
-- `static`: strict lint without formatting and a source audit of all 17 modules,
+- `static`: strict lint without formatting and a source audit of all 18 modules,
   labels, worker arguments and normalized Boolean consumers.
 - `contract`: eight config/profile combinations; R01–R13 through CLI/YAML;
   P01–P10; L01–L03; D01–D04; two helper batches on each of v1/v2.
@@ -147,6 +153,72 @@ TAA, TAG and TGA. Replace sequence at zero-based offset 1000 with
 `ATG + those 297 codons + TAA`, preserving total length, and wrap at 80 columns.
 This nonrepetitive coding sequence supplies unique seeds for default Liftoff mapping.
 The GFFs describe that single gene/mRNA/exon/CDS. Four FASTQ reads are 3000-base
-windows starting at 0, 1500, 3000 and 4500, with `I` quality. The rename inputs
-are separate tiny literal FASTAs. These fixtures are miniature transport and
+windows starting at 0, 1500, 3000 and 4500, with `I` quality. The rename input
+is one combined tiny literal FASTA. These fixtures are miniature transport and
 command checks, not representative scientific datasets.
+
+## Bounded scaffolding integration gates
+
+The approved [integration plan](../docs/plans/2026-10-05-scaffolding-integration.md)
+fixes the gate matrix. Helpers run in Python Docker with a 120-second bound.
+On 26.04.6 v2 run `static`, `integration-resources`, `scaffolding-preview`,
+`scaffolding-modules`, `docker-rename`, `scaffolding-smoke` and `annotation-smoke`.
+On v1 run `integration-resources`, `scaffolding-preview`, `scaffolding-modules`
+and `legacy-entry`; unset runs only `scaffolding-preview`.
+
+```bash
+# First create RUN.txt and retain the full binary diff/untracked snapshot as above.
+# Use fresh evidence, including after any source change; do not overwrite attempts.
+for mode in static integration-resources scaffolding-preview scaffolding-modules docker-rename scaffolding-smoke; do
+  bash "$repo/tests/parser_resources/run.sh" --repo "$repo" --evidence "$evidence" \
+    --mode "$mode" --engine 26.04.6 --parser v2 --interface selector
+done
+for mode in integration-resources scaffolding-preview scaffolding-modules legacy-entry; do
+  bash "$repo/tests/parser_resources/run.sh" --repo "$repo" --evidence "$evidence" \
+    --mode "$mode" --engine 26.04.6 --parser v1 --interface selector
+done
+bash "$repo/tests/parser_resources/run.sh" --repo "$repo" --evidence "$evidence" \
+  --mode scaffolding-preview --engine 26.04.6 --parser unset --interface selector
+bash "$repo/tests/parser_resources/run.sh" --repo "$repo" --evidence "$evidence" \
+  --mode annotation-smoke --engine 26.04.6 --parser v2 --interface selector
+```
+
+Inventory is written before execution. Counts exclude each mode's version call:
+`integration-resources` has two configs and R02 CLI/R03 YAML/L02 alias (11 actual
+resource tasks); previews have five zero-task entries; modules have four v2
+successful cases (10 actual tasks) and four separately counted expected YAML
+rejections, while v1 repeats just the mixed case (two tasks). Rename has one task.
+Two full smokes have 11/12 real tasks, including DNAAPLER in FULL-PATTERN;
+annotation retains its one smoke plus five two-task command cases. There are no
+pytest-collected test functions. Exact counts/resources are retained in inventories,
+raw traces and `results.tsv`; a failed task or incomplete case cannot count as pass.
+
+`tests/scaffolding/helpers.py` independently asserts CLI diagnostics, unchanged
+inputs/pre-existing outputs on validation failure, exact TSV bytes, single-pass
+original-suffix preservation and sequence/order/length preservation. It generates
+module fixtures containing N/U gaps, quoted leading-hyphen pattern transport,
+and header-only all-placed publications. Correction uses the 30 kb fixture renamed
+to `contig_3`, requiring confidence ID exactly `contig_3_1_30000_+` and header-only
+TSV. Correction suffixes remain raw evidence IDs and may remain in final FASTA IDs.
+
+FULL-DEFAULT uses same-name placed query/reference `strain_ChrI`, fungal/default
+rename and explicit reorientation false. FULL-PATTERN uses query `contig_3`,
+bacterial auto reorientation and Roman regex via CLI. Both add unrelated 6 kb
+query `2micron_plasmid` using the LCG/codon recipe above with seed 20261006 and
+its own gene at 1001–1897. FULL-PATTERN additionally has an unrelated reference
+sequence named `2micron_plasmid`, seed 20261007, exercising genuine unplaced status
+despite a reference-matching name. Vendor plasmid feature IDs and Name are distinct.
+Both TSVs must contain exactly `2micron_plasmid`, `2micron_plasmid_RagTag`, `6000`
+after the unchanged header. Generator recipe, literal inputs and hashes are saved.
+Raw TSV query membership, same-task AGP/confidence hashes and staged symlink
+resolution to the completed scaffold work directory are mandatory. Final chromosome
+and plasmid genes must have seqids in the final FASTA. Compare sequences to RagTag
+before rename, then allow only rotation/reverse-complement when DNAAPLER is enabled.
+
+The launcher stays at 4 CPUs/4 GiB; full tasks use a 1 CPU/4 GB/1h cap. Each
+full invocation is bounded at 1200 seconds, others at 600 seconds. OOM/suspected
+OOM stops the run for reporting, with no retry, cap escalation or resume. A failed
+DNAAPLER miniature fixture blocks the bacterial gate. Disk budget is 10 GiB added
+across all attempts, with a 20 GiB free-space floor; inspect df/du before each phase
+and retain failures/work directories. The patch-restoration missing container
+remains outside these gates and is not repaired or claimed verified.

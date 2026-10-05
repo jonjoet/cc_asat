@@ -5,8 +5,8 @@ include { normalizeBoolean } from '../../utils/params'
 
 workflow {
     if (params.test_kind == 'rename') {
-        RENAME_RAGTAG_SCAFFOLDS(file(params.fixture + '/ragtag_scaffold.fasta'),
-                                file(params.fixture + '/ragtag_unplaced.fasta'))
+        RENAME_RAGTAG_SCAFFOLDS(file(params.fixture + '/ragtag_scaffold.fasta')
+                                )
     } else {
         FILTER_MEGAGENES(file(params.fixture + '/reference.gff3'), 'reference')
         MERGE_ANNOTATIONS(file(params.fixture + '/reference.gff3'), file(params.fixture + '/vendor.gff3'),

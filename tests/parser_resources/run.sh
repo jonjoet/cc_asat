@@ -14,21 +14,31 @@ done
 [[ "$repo" = /* && "$evidence" = /* && "$evidence" = "$CC_GCEV_RUN_BASE" ]] || exit 2
 repo=$(realpath "$repo")
 evidence=$(realpath -m "$evidence")
-[[ "$evidence" = "$CC_GCEV_RUN_BASE" && "$evidence" = /home/qbk/qbk-code/tmp/cc_gcev/* ]] || exit 2
+[[ "$evidence" = "$CC_GCEV_RUN_BASE" && ( "$evidence" = /home/qbk/qbk-code/tmp/cc_gcev/* || "$evidence" = /home/qbk/qbk-code/tmp/cc_asat/* ) ]] || exit 2
 case "$evidence/" in "$repo/"*) echo 'Evidence must be outside the checkout' >&2; exit 2;; esac
 [[ "$interface" = selector && "$parser" =~ ^(v1|v2|unset)$ && "$engine" =~ ^26.04.[56]$ ]] || exit 2
-[[ "$mode" =~ ^(static|contract|fractions|unsupported|entry-parameters|previews|legacy-entry|tools|docker-rename|annotation-smoke)$ ]] || exit 2
+[[ "$mode" =~ ^(static|contract|fractions|unsupported|entry-parameters|previews|legacy-entry|tools|docker-rename|annotation-smoke|integration-resources|scaffolding-preview|scaffolding-modules|scaffolding-smoke)$ ]] || exit 2
 [[ -f "$evidence/RUN.txt" ]] || { echo 'Create evidence RUN.txt before invoking runner' >&2; exit 2; }
 phase="$evidence/$mode-$engine-$parser"
 [[ ! -e "$phase" ]] || { echo "Refusing to overwrite $phase" >&2; exit 2; }
 mkdir "$phase"
 cp "$evidence/RUN.txt" "$phase/RUN.txt"
 printf 'started_phase: %s\npurpose_phase: %s/%s/%s\n' "$(date -u +%FT%TZ)" "$mode" "$engine" "$parser" >> "$phase/RUN.txt"
+git -C "$repo" rev-parse -q --verify MERGE_HEAD >> "$phase/RUN.txt" || printf 'MERGE_HEAD: none\n' >> "$phase/RUN.txt"
+df -B1 "$evidence" > "$phase/disk-before.txt"
+du -sb "$CC_GCEV_RUN_BASE" > "$phase/size-before.txt"
+[[ $(df -B1 --output=avail "$evidence" | tail -1) -ge 21474836480 ]] || exit 2
 git -C "$repo" status --porcelain=v1 > "$phase/status.txt"
 git -C "$repo" diff --binary HEAD > "$phase/source.diff"
 git -C "$repo" ls-files --others --exclude-standard -z > "$phase/untracked.list"
 tar -C "$repo" --null -T "$phase/untracked.list" -cf "$phase/newfiles.tar"
 sha256sum "$phase/source.diff" "$phase/newfiles.tar" "$repo/docs/plans/2026-10-04-resource-contract.md" "$repo/tests/integration/resource_vectors.json" >> "$phase/RUN.txt"
+if [[ "$mode" = static ]]; then
+    for file in main.nf utils/params.nf docs/plans/2026-10-04-resource-contract.md tests/integration/resource_vectors.json nextflow.config; do
+        mkdir -p "$phase/base-preserved/$(dirname "$file")"
+        git -C "$repo" show "3d56a4513734d9dd41ddc80b31d7055e5232dbef:$file" > "$phase/base-preserved/$file"
+    done
+fi
 image="nextflow/nextflow:$engine"
 # No implicit pulls: the scheduler grants heavyweight image setup separately.
 docker image inspect "$image" > "$phase/image.json"
@@ -36,11 +46,13 @@ image_id=$(docker image inspect --format '{{.Id}}' "$image")
 if [[ "$engine" = 26.04.6 ]]; then
     [[ "$image_id" = sha256:83bbf3dd9e84ecd4d53a86620d08fe0259bca00a8f59f6f31664eb90033f460f ]] || exit 2
 fi
-mkdir -p "$phase/framework/$engine"
-jar="$phase/framework/$engine/nextflow-$engine-one.jar"
-printf '%q ' docker run --rm --network none --entrypoint /bin/cat "$image_id" "/.nextflow/framework/$engine/nextflow-$engine-one.jar" > "$phase/jar-command.txt"
-docker run --rm --network none --entrypoint /bin/cat "$image_id" "/.nextflow/framework/$engine/nextflow-$engine-one.jar" > "$jar"
-chmod a+r "$jar"
+: "${CC_ASAT_NXF_DIST:?export verified immutable CC_ASAT_NXF_DIST}"
+[[ "$CC_ASAT_NXF_DIST" = /* ]] || exit 2
+jar="$CC_ASAT_NXF_DIST/$engine/nextflow-$engine-one.jar"
+[[ -r "$jar" ]] || exit 2
+if [[ "$engine" = 26.04.6 ]]; then
+    [[ $(sha256sum "$jar" | cut -d ' ' -f1) = 2ca0251ae2d749317d9fbe5fe191a1616b5f44b608224268924c71b32f5ed9e2 ]] || exit 2
+fi
 sha256sum "$jar" > "$phase/jar.sha256"
 
 # Tool mode uses separate direct tool containers, never a socket in the metadata launcher.
@@ -122,12 +134,19 @@ fi
 args=(docker run --rm --cpus 4 --memory 4g --user "$(id -u):$(id -g)"
     --entrypoint /usr/bin/python3
     -e PYTHONDONTWRITEBYTECODE=1 -e NXF_OFFLINE=true -e NXF_DISABLE_CHECK_LATEST=true
-    -e NXF_DIST="$phase/framework" -e NXF_VER="$engine" -e NXF_OPTS=-Xmx768m
+    -e NXF_DIST="$CC_ASAT_NXF_DIST" -e NXF_VER="$engine" -e NXF_OPTS=-Xmx768m
     -e CC_GCEV_RUN_BASE="$evidence"
+    -v "$CC_ASAT_NXF_DIST:$CC_ASAT_NXF_DIST:ro"
     -v "$repo:$repo:ro" -v "$evidence:$evidence" -w "$phase")
 [[ "$parser" = unset ]] || args+=(-e NXF_SYNTAX_PARSER="$parser")
-if [[ "$mode" = docker-rename || "$mode" = annotation-smoke ]]; then
+if [[ "$mode" = docker-rename || "$mode" = annotation-smoke || "$mode" = scaffolding-modules || "$mode" = scaffolding-smoke ]]; then
     args+=(--group-add "$(stat -c %g /var/run/docker.sock)" -v /var/run/docker.sock:/var/run/docker.sock)
+fi
+# Record the immutable identities of all actual task images before execution.
+if [[ "$mode" = docker-rename || "$mode" = annotation-smoke || "$mode" = scaffolding-modules || "$mode" = scaffolding-smoke ]]; then
+    for tool_image in python:3.12 quay.io/biocontainers/ragtag:2.1.0--pyhb7b1952_0 quay.io/biocontainers/samtools:1.20--h50ea8bc_0 quay.io/biocontainers/seqtk:1.4--he4a0461_2 quay.io/biocontainers/liftoff:1.6.3--pyhdfd78af_0 quay.io/biocontainers/gffutils:0.13--pyh7cba7a3_0 quay.io/biocontainers/quast:5.2.0--py39pl5321h4e691d4_3 quay.io/biocontainers/dnaapler:1.1.0--pyhdfd78af_0; do
+        docker image inspect "$tool_image" >> "$phase/tool-images.json" || exit 2
+    done
 fi
 args+=("$image_id" "$repo/tests/parser_resources/assert_results.py"
     --repo "$repo" --phase "$phase" --mode "$mode" --engine "$engine" --parser "$parser")
@@ -145,5 +164,7 @@ git -C "$repo" diff --binary HEAD > "$phase/source-after.diff"
 cmp "$phase/source.diff" "$phase/source-after.diff"
 tar -C "$repo" --null -T "$phase/untracked.list" -cf "$phase/newfiles-after.tar"
 cmp "$phase/newfiles.tar" "$phase/newfiles-after.tar"
+df -B1 "$evidence" > "$phase/disk-after.txt"
+du -sb "$CC_GCEV_RUN_BASE" > "$phase/size-after.txt"
 printf '%s\n' "$phase/RUN.txt" "$phase/command.txt" "$phase/output.log" "$phase/exit-code.txt" "$phase/results.tsv" "$phase/case-inventory.tsv" >> "$evidence/ARTIFACTS.txt"
 exit "$code"
