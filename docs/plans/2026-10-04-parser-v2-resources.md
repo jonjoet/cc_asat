@@ -1,18 +1,19 @@
 # Parser v2 and shared resource policy — cc_asat implementation plan
 
-Date: 2026-10-04; revised 2026-10-05, round 3 after review 2. Phase: tier-2 plan-fix only.
-Revisions and byte-identical canonical contract adoption are proposed for re-review.
-The user-deferred public command-interface choice remains open; independent
-planning work is otherwise complete. No implementation is
-authorized by this document. Final plan review and user summary approval precede
-a fresh implementation session.
+Date: 2026-10-04; selector approval recorded 2026-10-05 after review 3.
+Phase: tier-2 final selector plan record only. The user approved the reviewed
+summary, time policy, parallel builds and the parameter interface with v1 legacy
+compatibility. This mechanical amendment needs the short independent diff review
+before a fresh Astra/high implementation session. No product code or commit is
+authorized in this plan-record task; no further user approval of this choice is needed.
 
 ## 1. Authority, snapshots, and handoff boundary
 
 Work only in `/home/qbk/qbk-code/cc_asat/.worktrees/qbk-polly/parser-v2/feature`,
-branch `claude/ecstatic-thompson-w5cfoh`, starting at
-`5e8e2447eb4401967a84c8255f5d04afbbc2fdb8`. The expanded docs-only dispatch permits
-this plan and a byte-for-byte copy of the canonical resource contract named below.
+branch `claude/ecstatic-thompson-w5cfoh`, now at reviewed-plan commit
+`d3b4d7861002ea0efbf878c006b48df2660600d2` (product source remains candidate
+`5e8e2447eb4401967a84c8255f5d04afbbc2fdb8`). This dispatch permits editing only
+this plan. The canonical resource contract named below must remain unchanged.
 No commits, merges, rebases, cherry-picks, publication, or
 root/sibling checkout edits during planning. Retain existing PR #4 and its
 published history: https://github.com/jonjoet/cc_asat/pull/4 .
@@ -44,7 +45,19 @@ caps below floors, shared proportional scaling, command/thread auditing, early
 tool-minimum failure, one-CPU semantics, precedence/validation/detection,
 Boolean/nullable behavior, parser matrix and scope/history boundaries. Those
 requirements are addressed by the sections below and the pinned canonical
-contract. The deferred selector ruling remains an explicit approval dependency.
+contract. The selector approval is now recorded below.
+
+**User approval authority:**
+`/home/qbk/qbk-code/tmp/cc_gcev/parser-v2-build-20261005T013953Z/APPROVAL.txt`.
+The user approved `main.nf --workflow full` (default) or
+`--workflow annotation_transfer_only`, retained v1 legacy `-entry`, accepted
+the time policy and parallel repository implementation by fresh Astra/high
+implementers. README/examples and useful migration-related documentation cleanup
+are approved scope; broader unrelated cleanup remains outside this task.
+Review 3 at
+`/home/qbk/qbk-code/tmp/cc_gcev/parser-v2-plans-20261004T231148Z/review-3/review.md`
+found the prior documents technically clean apart from that then-open choice and
+permits finalization in this owning plan without changing the shared contract.
 
 Review 1 was read in full at
 `/home/qbk/qbk-code/tmp/cc_gcev/parser-v2-plans-20261004T231148Z/review-1/review.md`
@@ -90,41 +103,49 @@ on 26.04.6; actual repository gates remain necessary. Keep legacy params with
 explicit conversion and entry-local `workflow.onComplete = { ... }` handlers.
 Run strict lint on 26.04.6 without formatting. Do not claim later engines tested.
 
-### Public mode selection — decision deferred by the user
+### Public mode selection — approved parameter and v1 legacy route
 
 Review B1 demonstrates that strict parsing rejects `-entry`, including previews.
 The existing annotation-only Quick Start therefore needs a public-interface
-change. The user has explicitly deferred this choice until the other planning
-work is ready. The following is a recommendation, **not a selected or approved
-interface**. No question or wait for this choice is part of this revision.
+change. The user selected the parameter interface and retained v1 compatibility;
+the separate-root-script alternative is not selected and is outside the allowlist.
 
-Recommended future interface: one anonymous entry workflow in `main.nf`, using
-`--workflow full` (default) or `--workflow annotation_transfer_only`. If selected,
+Use one anonymous entry workflow in `main.nf`, with
+`--workflow full` (default) or `--workflow annotation_transfer_only`;
 declare default `full` in nextflow.config; validate exactly those string values
 before dispatch (reject null/empty/unknown values); normalize resources/Booleans
 once, perform the selected mode's existing input validation, then call its named
 subworkflow with the options map. Full requires organism_type as today;
 annotation-only continues to allow its omission. Unknown selectors fail before
-any task. Register completion handling on the actual entry workflow. If this
-interface is chosen, finalize its parameter-specific diagnostic in that ruling;
-the shared resource contract does not define an E_WORKFLOW template.
+any task. Register completion handling on the actual entry workflow.
+Selector values are exact case-sensitive strings, without trimming or coercion;
+omission keeps default `full`. Use normal effective-param precedence. Invalid
+values use this local diagnostic (E_WORKFLOW is not added to the shared contract):
 
-Alternative, also unapproved: keep `main.nf` as full mode and add root-level
-`annotation_transfer_only.nf` with an anonymous entry invoking the existing
-annotation subworkflow. Both roots use the same normalization/preflight helper
-and completion handling. Do not introduce --workflow under this alternative.
+```text
+ERROR: --workflow must be 'full' or 'annotation_transfer_only'; received '<value>'.
+```
 
-If the user also chooses to retain the named v1 legacy route, keep
-`-entry ANNOTATION_TRANSFER_ONLY` only for 26.04.6/v1, with the same annotation
-preflight, and add one bounded v1 compatibility preview. Do not retain or test
-this route implicitly. If both selector and legacy retention are selected, the
-later ruling must specify their interaction and diagnostic: effective default
-`full` cannot distinguish omission from explicit `--workflow full`. Do not invent
-CLI reparsing or claim the former nondefault-conflict rule resolves that ambiguity.
-Under either choice, update README Quick Starts, params examples, migration
-notes, conditional allowlist and every mode gate. No v2/unset gate uses -entry.
-Section 8 gives the exact conditional command forms; the later ruling selects
-one set before implementation dispatch.
+Render the received value with the canonical escaping/JSON rule. Gate assertions
+use exact typed-YAML rendering and the complete CLI template with only the
+received-value slot variable, as for the shared diagnostics. Section 8 fixes
+the selector-specific negative cases outside the 132 shared parameter startups.
+
+Retain `-entry ANNOTATION_TRANSFER_ONLY` only for 26.04.6/v1. That explicit legacy
+entry always selects annotation-only, irrespective of either valid effective
+--workflow value (including default or explicit `full`). First validate selector
+membership and all shared resources/Booleans, then use annotation input preflight.
+Do not distinguish omission from explicit full, reparse argv, or reject a valid
+selector as a conflict. Emit this informational message once on the legacy route:
+
+```text
+INFO: Legacy -entry ANNOTATION_TRANSFER_ONLY selects annotation_transfer_only; --workflow does not select the route.
+```
+
+Invalid selector values still fail with E_WORKFLOW before tasks on that route.
+Document this precedence in README migration/legacy examples; new examples use
+the parameter. No v2/unset gate uses -entry. Keep shared preflight and completion
+handling equivalent between dispatcher annotation mode and legacy annotation mode.
 
 Official references, read during planning:
 [parser migration](https://docs.seqera.io/nextflow/strict-syntax),
@@ -145,6 +166,11 @@ from the parent-supplied immutable artifact:
 `/home/qbk/qbk-code/tmp/cc_gcev/parser-v2-plans-20261004T231148Z/fix-3/cc_gcev-final/resource-contract.md`.
 The local durable copy is `docs/plans/2026-10-04-resource-contract.md`; its hash
 and byte comparison match that source. No in-progress sibling artifact was read.
+
+The contract's historical `PENDING USER` selector wording delegates the decision
+to this owning plan. Section 2 and the explicit approval record supersede that
+historical status; it is not a remaining implementation/runtime block. Preserve
+the contract bytes/hash and future fixture contract_sha256 unchanged.
 
 Cross-repo reconciliation also read the immutable sibling plan
 `/home/qbk/qbk-code/tmp/cc_gcev/parser-v2-plans-20261004T231148Z/fix-3/cc_gcev-final/plan.md`
@@ -279,8 +305,8 @@ normalized options map from preflight; pass it through workflow `take:` inputs
 and pass the normalized novel-only Boolean into its consuming process. Do not assign
 normalized values back into params after includes have captured them.
 
-Normalize these cc_asat booleans for **both logical modes**, regardless of the
-eventual public selector choice:
+Normalize these cc_asat booleans for **both logical modes**, including the
+retained v1 annotation entry:
 `run_correct`, `fill_gaps_from_ref`, `skip_annotation_transfer`, `skip_merge`,
 `liftoff_copies`, `fix_generic_names`, `fix_reference_gff`, `fix_vendor_gff`,
 `merge_novel_only`, and nullable `reorient_assembly`.
@@ -317,17 +343,16 @@ implementation dispatch. It is not permission to edit these files during plannin
 
 | File | Required change |
 |---|---|
-| nextflow.config | Closure-contained detection defaults; explicit tier clamps plus late native-cap closure per canonical contract; no top-level scripting/check_max; enforced floor; preserve profiles/report routing. Add workflow default only if selector chosen. |
-| utils/params.nf (new) | Pure catchable resource/Boolean validation plus terminating entry adapter, options map and shared mode-specific preflight; conditional selector validation. No threshold hardening or scientific logic. |
-| main.nf | Shared preflight before any task; normalized run_correct validation; pass options and entry-local completion. If recommended selector is chosen, anonymous dispatcher plus --workflow validation; conditional v1 legacy entry only if approved. |
-| annotation_transfer_only.nf (new, conditional only) | Add only if the separate-root-script alternative is selected; root-level anonymous entry, shared annotation preflight and completion. Otherwise this file is outside the future allowlist. |
+| nextflow.config | Closure-contained detection defaults; explicit tier clamps plus late native-cap closure per canonical contract; no top-level scripting/check_max; enforced floor; preserve profiles/report routing. Add workflow default 'full'. |
+| utils/params.nf (new) | Pure catchable resource/Boolean validation plus terminating entry adapter, options map and shared mode-specific preflight; exact selector validation/E_WORKFLOW. No threshold hardening or scientific logic. |
+| main.nf | Anonymous --workflow dispatcher, shared preflight before any task, normalized run_correct validation, options and entry-local completion. Retain named v1 annotation entry with section 2 precedence/message and the same validation. |
 | workflows/annotation_transfer_only.nf | Add take: options and main: before existing statements; replace direct boolean uses with options; preserve outputs and vendor lift semantics. |
 | workflows/euk_scaffold_validation.nf | Take/pass options; preserve existing channels, sentinels and annotation gating; use normalized reorientation and correction flags. |
 | subworkflows/local/annotation_transfer.nf | Take/pass options; use normalized copies, name-fix and merge flags; preserve primary versus copies outputs and aliases. |
 | modules/local/filter_megagenes/main.nf | Migration-only null/zero length-limit handling; keep existing inputs and numeric text interpolation. |
 | modules/local/merge_annotations/main.nf | Add val novel_only fed from normalized options by both aliases; retain numeric interpolation and merge algorithm unchanged. |
-| README.md | Selected future public mode route, migration from -entry, conditional v1 legacy note; reconciled engine/parser policy, canonical resource policy, false/null examples including absent annotation organism, detector caveat and gate commands. |
-| assets/params.example.yaml (new) | Required-path placeholders, caps, YAML false/null examples; add workflow only if the selector recommendation is approved. |
+| README.md | --workflow Quick Starts/default/annotation routes, migration from -entry and retained v1 precedence/message; reconciled engine/parser policy, canonical resource policy, false/null examples including absent annotation organism, detector caveat and gate commands. Useful migration-related cleanup only. |
+| assets/params.example.yaml (new) | Required-path placeholders, caps, YAML false/null examples; workflow: full with annotation_transfer_only alternative documented. |
 | tests/README.md (new) | Reproduction, Docker setup, evidence schema, modes/counts, runtime versus metadata scope. |
 | tests/parser_resources/run.sh (new) | Docker-only orchestrator with modes below; uid/gid, immutable images, RUN-first, parser/version flags, exit capture and no source writes. |
 | tests/parser_resources/{probe.config,assert_results.py,parameters.nf,rename.nf,detect.nf} (new) | Resource safety/trace overlays, canonical-vector consumer, batched real-helper checks, explicit-bin-path rename harness and independent raw detection probe. No local normative cases.json. |
@@ -451,7 +476,7 @@ Previews verify branch membership; helper output verifies normalized types.
 Real generated commands must omit --novel-only for false, omit the length-limit
 argument for null/zero, and preserve representative nonzero numeric interpolation.
 Do not introduce a negative numeric-threshold suite. Selected-interface tests
-are conditional as specified in sections 2 and 8, never v2 -entry tests.
+use the approved routes in sections 2 and 8, never v2 -entry tests.
 
 ## 8. Docker gates and exact reproduction interface
 
@@ -489,26 +514,23 @@ for parser in v1 v2; do
 done
 bash "$repo/tests/parser_resources/run.sh" --repo "$repo" --evidence "$evidence" --mode tools --engine 26.04.6 --parser v2
 bash "$repo/tests/parser_resources/run.sh" --repo "$repo" --evidence "$evidence" --mode docker-rename --engine 26.04.6 --parser v2
-# Run this dependent block only after the user selects the public interface.
-# CC_ASAT_INTERFACE must then be selector OR scripts, never an inferred default.
-: "${CC_ASAT_INTERFACE:?Set to the approved selector or scripts interface}"
+export CC_ASAT_INTERFACE=selector
 for parser in v1 v2; do
   bash "$repo/tests/parser_resources/run.sh" --repo "$repo" --evidence "$evidence" --mode entry-parameters --engine 26.04.6 --parser "$parser" --interface "$CC_ASAT_INTERFACE"
 done
-for parser in v2 unset; do
+for parser in v1 v2 unset; do
   bash "$repo/tests/parser_resources/run.sh" --repo "$repo" --evidence "$evidence" --mode previews --engine 26.04.6 --parser "$parser" --interface "$CC_ASAT_INTERFACE"
 done
 bash "$repo/tests/parser_resources/run.sh" --repo "$repo" --evidence "$evidence" --mode annotation-smoke --engine 26.04.6 --parser v2 --interface "$CC_ASAT_INTERFACE"
-# Only if retaining the legacy route was separately selected:
-# bash "$repo/tests/parser_resources/run.sh" --repo "$repo" --evidence "$evidence" --mode legacy-entry --engine 26.04.6 --parser v1
+bash "$repo/tests/parser_resources/run.sh" --repo "$repo" --evidence "$evidence" --mode legacy-entry --engine 26.04.6 --parser v1 --interface "$CC_ASAT_INTERFACE"
 ```
 
 Runner implementation must print/preserve the fully expanded Docker/Nextflow
 commands, not just its own invocation. Mode definitions:
 
 `--parser unset` must remove NXF_SYNTAX_PARSER from the container environment,
-not set it to the literal string 'unset'. Interface-independent modes do not need
-a selector decision. Mode-dependent tests are finalized after that decision.
+not set it to the literal string 'unset'. The approved --interface value is
+`selector`; the separate-root-script mode is not supported by this harness.
 
 - static: `nextflow lint <repo>` without formatting; zero errors, warnings recorded.
   Also source audit for all boolean consumers, labels, thread flags and selectors.
@@ -520,7 +542,7 @@ a selector decision. Mode-dependent tests are finalized after that decision.
   Success requires every expected assertion row, canonical transport-aware
   diagnostics/types/values and no cap violations. Complete v1 fallback also needs
   entry-parameters, but no v1 biological matrix.
-- entry-parameters (conditional interface): run exactly the canonical EV/EN/EC/EA
+- entry-parameters: run exactly the canonical EV/EN/EC/EA
   real-entry recipes through both selected routes: 64 previews per parser,
   128 across v1/v2. Every invocation, valid or invalid, uses -preview and valid
   fixture inputs; assert the specified exit/diagnostic and zero tasks. All ten
@@ -528,13 +550,14 @@ a selector decision. Mode-dependent tests are finalized after that decision.
   YAML/full-template CLI assertions. Do not repeat the helper grammar cross-product
   through entries. EA absent-organism cases exercise annotation mode only;
   full-mode absent organism keeps its existing required-input error. No socket.
-- previews (conditional interface): both logical modes with -preview -cache false,
+- previews: both logical modes with -preview -cache false,
   valid fixture inputs, unique outdir/work, and bounded section 7 branch/auto/zero
   comparisons. Reuse same-snapshot v2 entry cases where they supply these checks;
   do not repeat the entire grammar matrix. Require successful compilation and
   expected process membership; retain selector-specific negatives plus focused
   unset-parser cap/Boolean negatives, all before tasks.
-  Exact route forms after selection are in the table below. Explicit/unset v2
+  Run the local selector cases below on v1/v2/unset; v1 remains preview-only.
+  Exact route forms are in the table below. Explicit/unset v2
   must agree; previews do not count as tool execution.
 - unsupported: 26.04.5/v1 and /v2 run main.nf with valid full-mode inputs and its
   default route. Require nonzero exit, the actual engine version-mismatch text
@@ -555,33 +578,53 @@ a selector decision. Mode-dependent tests are finalized after that decision.
   the bind/export in wrappers and successful resolution of
   rename_ragtag_scaffolds.py; do not edit the production rename module or place
   a script in the repository root. All generated config stays in evidence.
-- annotation-smoke (conditional interface): real annotation-only mode on identical synthetic reference
+- annotation-smoke: real annotation-only mode on identical synthetic reference
   and assembly with valid reference/vendor GFFs; `--organism_type fungal
   --reorient_assembly false --fix_reference_gff false --fix_vendor_gff false
   --liftoff_copies false --merge_novel_only true --max_cpus 1 --max_memory '4 GB'
   --max_time 1h`; compare expected iterative outputs, no copies/full merge,
   and confirm QUAST completion. This is a tiny integration gate, not a genome
   benchmark. Use at least 1 GB requests for real low-tier tools as the policy gives.
-- legacy-entry (conditional retention): one valid-input 26.04.6/v1 annotation
-  preview using -entry ANNOTATION_TRANSFER_ONLY and shared preflight; no strict
-  parser variant. If retention is not approved this mode must not run.
+- legacy-entry: bounded 26.04.6/v1 annotation previews using
+  -entry ANNOTATION_TRANSFER_ONLY and shared preflight; execute the local legacy
+  cases below. No strict-parser variant or additional v1 biological matrix.
 
-Conditional public route commands; append fixture --assembly/--reference and
+Approved public route commands; append fixture --assembly/--reference and
 --reference_gff, appropriate organism flag, -profile test,docker, --outdir and
 -work-dir in the runner. Previews also append -preview -cache false. In actual
 smoke mode append the flags above and omit -preview.
 
-| User choice (not yet made) | Full route | Annotation-only route |
+| Approved interface | Full route | Annotation-only route |
 |---|---|---|
-| Recommended selector | `nextflow run <repo>/main.nf --workflow full` (also test omission) | `nextflow run <repo>/main.nf --workflow annotation_transfer_only` |
-| Alternative separate root | `nextflow run <repo>/main.nf` | `nextflow run <repo>/annotation_transfer_only.nf` |
+| Pipeline parameter | `nextflow run <repo>/main.nf --workflow full` (also test omission) | `nextflow run <repo>/main.nf --workflow annotation_transfer_only` |
 
-If the selector is chosen, add invalid/null/empty --workflow cases with zero
-tasks and test both default and explicit full. If scripts are chosen, lint and
-preview both root scripts, verify their manifest/config resolution, and omit
-selector-validation cases. Both alternatives run the same normalization tests,
-annotation-without-organism auto tests, Boolean negatives and scientific output
-assertions. Neither treats v2 -entry as a supported route.
+Local selector gates in previews (26.04.6 v1/v2/unset), with route-valid inputs,
+R03 caps and other options valid; all require zero tasks:
+
+- SEL-DEFAULT, SEL-FULL and SEL-ANNOTATION: omit --workflow, CLI
+  --workflow=full, and CLI --workflow=annotation_transfer_only respectively;
+  exit 0 and the expected logical route/process membership. Reuse matching
+  same-snapshot entry previews where their inputs and assertions are identical.
+- SEL-INVALID and SEL-EMPTY: values `bogus` and empty string through both CLI
+  and typed YAML (CLI `--workflow=bogus` / `--workflow=`); nonzero and the
+  complete E_WORKFLOW template under the transport rules in section 2.
+- SEL-NULL: typed YAML `workflow: null`; nonzero with exact received `null`.
+  These are five negative invocations per parser; do not substitute CLI text null
+  for typed YAML null. Full-mode fixtures include organism_type so a missing input
+  cannot mask the selector diagnostic.
+
+Legacy cases (v1 only) use
+`nextflow run <repo>/main.nf -entry ANNOTATION_TRANSFER_ONLY -preview -cache false`
+with valid annotation inputs, omitted organism_type and R03 caps. LEG-DEFAULT,
+LEG-FULL and LEG-ANNOTATION omit --workflow or supply either valid value: all
+exit 0, select annotation-only and emit the exact legacy INFO message. LEG-INVALID
+supplies CLI --workflow=bogus and rejects with E_WORKFLOW. LEG-CAP supplies
+--max_cpus=-1, and LEG-BOOL supplies --merge_novel_only=yes, one at a time with
+valid selector; each rejects with its canonical named diagnostic before tasks.
+These six previews establish legacy routing/shared-preflight behavior. Local
+selector/legacy cases are separately counted, leaving the 132 shared parameter
+startups unchanged. Preserve annotation-without-organism auto, Boolean negatives
+and scientific output assertions; no v2 -entry route is supported.
 
 Tools-mode pass criteria and bounded fallback:
 
@@ -643,8 +686,8 @@ inside the tool container; the host shell only launches that container.
 Actual Nextflow Docker-task gates (rename and annotation smoke) alone use a
 Docker-capable launcher container with explicitly scoped daemon-socket access.
 All Nextflow invocations remain containerized because project rules prohibit
-host tests. This is a deliberate narrow test-harness addition to be disclosed by
-the parent in the user summary, not a host-Nextflow fallback. Socket access grants
+host tests. This narrow test-harness addition was disclosed in the approved
+user summary; there is no host-Nextflow fallback. Socket access grants
 daemon control; launcher isolation is operational scope, not a security sandbox.
 Use only the assigned source/evidence mounts, serial task execution and recorded
 commands. Do not change shared daemon configuration, permissions or group setup;
@@ -684,7 +727,7 @@ inaccessible artifacts are blocked gates, not successes.
 
 ## 9. Behavior changes, exclusions, integration and task order
 
-Explicit cc_asat behavior changes requiring approval:
+Explicit cc_asat behavior changes accepted in the user-approved summary:
 
 - Low changes from fixed 2 CPU/4GB/1h to 25% with 1 CPU/1GB/1h floors;
   medium changes from detected min(8 CPU,16GB)/4h to 50% with 2 CPU/2GB/4h floors;
@@ -698,11 +741,11 @@ Explicit cc_asat behavior changes requiring approval:
   Version floor rises to 26.04.6; v2 CLI false becomes stable. Longer proportional time
   requests may change scheduling even when actual runtime is unchanged.
 - Annotation-only needs a v2-compatible public route because -entry is rejected.
-  The --workflow recommendation and separate-root alternative remain deferred,
-  unapproved user choices. Preserve scientific behavior under whichever is chosen;
-  retain the v1 legacy route only conditionally as described in section 2.
+  The approved --workflow parameter selects the existing logical workflows;
+  scientific behavior is preserved. Retain the v1 legacy route with the explicit
+  annotation precedence described in section 2; do not add a separate root script.
 - Containerized Nextflow with socket access only for actual Docker-task gates is
-  a narrow test-harness addition; parent must disclose this in the plan summary.
+  a narrow test-harness addition disclosed in the approved plan summary.
   No shared-daemon changes or host tests are authorized.
 
 Non-goals: scientific/annotation/scaffolding redesign, optional-GFF support,
@@ -713,7 +756,8 @@ unit-test framework or script algorithm tests. Preserve RESTORE_PATCH_SEQNAMES's
 known container limitation as out of scope; do not claim a patch-arm Docker gate
 passed when only annotation and rename were run.
 
-Branch strategy after approval: cc_asat is main+one candidate commit; recheck
+Branch strategy: cc_asat product source is main+one candidate commit, followed
+by the reviewed planning-doc commit identified in section 1; recheck
 refs/status, but no integration merge is needed at the recorded SHAs. Keep its
 branch and PR. Gcev is independently owned, 70 commits behind and conflicting;
 its implementation must incorporate current main by a non-rewriting merge and
@@ -724,11 +768,10 @@ base; branch protection and parent publication permissions still apply.
 
 Serial within this repo:
 
-1. Canonical document adoption is complete at the hash in section 3; vector JSON
-   remains future build work. Resolve the user-deferred selector
-   when the user elects to decide, finalize conditional allowlist/commands, then
-   obtain independent full-plan review and user summary approval. No new question
-   or wait for that choice is part of this plan-fix task.
+1. Canonical adoption and user summary/selector approval are complete. Obtain the
+   short independent diff review of this mechanical selector record, then the
+   authorized plan commit and fresh Astra/high implementation dispatch. No repeat
+   user approval is required. Vector JSON remains future build work.
 2. Fresh implementer checks base/status/history and current plans; implements
    config, preflight and syntax first; tests 26.04.6 config/selected-route preview
    before expanding edits. Failure of the selected syntax at the selected floor
@@ -744,8 +787,8 @@ Serial within this repo:
    Parent/designated owner updates existing PR description with scope/evidence.
    No task PR to main, merging to main, branch deletion or force-push.
 
-Parallel split: sibling plans and independent reviews can proceed concurrently.
-During approved implementation, independent asat plumbing can proceed while the
+Parallel split: the user approved fresh Astra/high implementers in both repos
+working in parallel. Independent asat plumbing can proceed while the
 fresh gcev implementer authors the shared JSON once. Fixture adoption is serial:
 parent supplies the completed immutable artifact/hash before asat copies it.
 No independent fixture reconstruction or in-progress sibling read. This dispatch
@@ -759,9 +802,10 @@ serial to avoid shared-host contention.
   in sections 1/3. Only the finalized artifact was read/copied, without edits.
   Future JSON/test-result parity remains an implementation gate; the fresh
   implementer must receive this plan and the pinned contract together.
-- Public selector choice is explicitly deferred by the user. Recommendation,
-  alternative and conditional gates are concrete, but neither is approved.
-  Independent planning revisions proceed without asking or waiting for a ruling.
+- Public selector and retained v1 legacy behavior are recorded in section 2.
+  Short diff review and fresh-session dispatch remain procedural gates, not a
+  further user-choice dependency. Historical shared-contract pending wording
+  is superseded locally as recorded in section 3; do not alter its hash.
 - Early strict-parser limitations, dynamic resourceLimits evaluation, image/JAR
   availability and pinned-tool one-CPU behavior require the stated gates; none
   was tested during planning. Do not turn an environmental setup failure into a
@@ -777,12 +821,13 @@ serial to avoid shared-host contention.
   in particular, passing normalized options must not inadvertently implement the
   deferred optional-GFF plan or modify copies/iterative merge identity rules.
 
-Review prompt for the parent: review the entire saved plan, both independent
-reviews and round-three dispositions, dispatch and hashed requirements. Examine
-the pinned byte-identical canonical
-artifact and resolve only the public choice actually
-approved by the user. Independently check current-main contracts, override timing,
-command assumptions, floor, conditional allowlist and Docker/socket boundaries.
+Review prompt for the parent: use the retained reviewer for the short selector
+delta against reviewed-plan commit d3b4d7861002ea0efbf878c006b48df2660600d2,
+the explicit approval record and review-3 mechanical-update list. Check selected
+routes, legacy precedence/message, exact selector diagnostics/negative cases,
+allowlist and commands; confirm canonical bytes/hash and 132 shared counts remain
+unchanged. Prior scientific/resource/Docker scope and independent review stand.
 Report blockers, non-blockers and suggestions separately with line references.
 Do not approve from this planner's summary or treat reviewer prototypes as
-acceptance of future product code. Do not infer selector approval from this plan.
+acceptance of future product code. Selector approval comes from the explicit
+record in section 1; no new user approval or runtime probe is needed for this delta.
