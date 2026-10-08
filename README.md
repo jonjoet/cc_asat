@@ -4,6 +4,31 @@ Nextflow DSL2 pipeline for validating and improving microbial de novo assemblies
 
 ## Quick Start
 
+For a YAML-driven run, copy [assets/params.example.yaml](assets/params.example.yaml)
+to `params.yaml`, replace the input paths, and use the executable wrapper:
+
+```bash
+./run.sh params.yaml                       # Docker by default
+./run.sh -profile singularity params.yaml   # or -p singularity
+./run.sh -p test,docker params.yaml -resume
+NEXTFLOW="/path/to/nextflow" ./run.sh params.yaml
+./run.sh params.yaml --workflow annotation_transfer_only -resume
+```
+
+Usage: `./run.sh [-profile <profiles> | -p <profiles>] <params.yaml> [extra Nextflow args...]`.
+The optional profile override precedes the YAML file; all trailing arguments pass
+through unchanged. `NEXTFLOW` selects a launcher executable (including paths with
+spaces); when unset or empty, the wrapper uses `nextflow` on `PATH`.
+Set `workflow: full` or `workflow: annotation_transfer_only` in the YAML; omission
+uses the pipeline's `full` default. The wrapper does not override this selection;
+an explicit trailing `--workflow` can override it.
+
+You can invoke `/path/to/cc_asat/run.sh params.yaml` from another directory. The
+wrapper finds `main.nf` beside itself and keeps your working directory, preserving
+relative YAML/input paths and the location of Nextflow work/results directories.
+Missing arguments, missing profile values, and unreadable parameter files fail
+before launching Nextflow. Direct Nextflow commands remain supported:
+
 ### 1. Annotation transfer only (no scaffolding)
 
 Transfer annotations from a reference to your assembly, optionally merging vendor annotations:

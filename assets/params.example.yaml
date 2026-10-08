@@ -1,5 +1,5 @@
 # Replace all path placeholders before running.
-# nextflow run main.nf -params-file params.yaml -profile docker
+# ./run.sh params.yaml  # defaults to Docker; add -resume after the YAML if needed
 workflow: full  # alternative: annotation_transfer_only
 assembly: /path/to/assembly.fasta
 reference: /path/to/reference.fasta
