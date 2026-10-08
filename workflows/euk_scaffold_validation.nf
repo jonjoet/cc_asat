@@ -11,6 +11,10 @@ include { GAP_CLOSING          } from '../subworkflows/local/gap_closing'
 include { ANNOTATION_TRANSFER  } from '../subworkflows/local/annotation_transfer'
 
 workflow EUK_SCAFFOLD_VALIDATION {
+    take:
+    options
+
+    main:
 
     // ---- Input channels ----
     ch_assembly  = Channel.value(file(params.assembly, checkIfExists: true))
@@ -21,7 +25,7 @@ workflow EUK_SCAFFOLD_VALIDATION {
         : Channel.value(file('NO_GFF'))
 
     // ---- AGAT GFF fixing ----
-    if (params.reference_gff && params.fix_reference_gff) {
+    if (params.reference_gff && options.fix_reference_gff) {
         AGAT_FIX_REFERENCE_GFF(ch_reference_gff_raw, 'reference')
         ch_reference_gff = AGAT_FIX_REFERENCE_GFF.out.fixed_gff
     } else {
@@ -32,7 +36,7 @@ workflow EUK_SCAFFOLD_VALIDATION {
     SAMTOOLS_FAIDX(ch_reference)
 
     // ---- Scaffolding ----
-    if (params.run_correct && params.reads) {
+    if (options.run_correct && params.reads) {
         ch_reads_scaffold = Channel.value(file(params.reads, checkIfExists: true))
         SCAFFOLDING(ch_assembly, ch_reference, ch_reads_scaffold, true)
     } else {
@@ -50,7 +54,7 @@ workflow EUK_SCAFFOLD_VALIDATION {
     }
 
     // ---- Optional patch from reference ----
-    if (params.fill_gaps_from_ref) {
+    if (options.fill_gaps_from_ref) {
         RAGTAG_PATCH(ch_gapclosed, ch_reference)
         RESTORE_PATCH_SEQNAMES(ch_gapclosed, RAGTAG_PATCH.out.patched, RAGTAG_PATCH.out.agp, RAGTAG_PATCH.out.rename_agp)
         ch_final = RESTORE_PATCH_SEQNAMES.out.renamed
@@ -59,7 +63,7 @@ workflow EUK_SCAFFOLD_VALIDATION {
     }
 
     // ---- Optional reorientation (on by default for bacterial) ----
-    def do_reorient = params.reorient_assembly != null ? params.reorient_assembly : (params.organism_type == 'bacterial')
+    def do_reorient = options.reorient_assembly
     if (do_reorient) {
         DNAAPLER(ch_final)
         ch_final = DNAAPLER.out.reoriented
@@ -69,7 +73,7 @@ workflow EUK_SCAFFOLD_VALIDATION {
     SEQTK_SEQ(ch_final)
 
     // ---- Annotation transfer (conditional) ----
-    def run_annotation_transfer = params.reference_gff && !params.skip_annotation_transfer
+    def run_annotation_transfer = params.reference_gff && !options.skip_annotation_transfer
 
     if (run_annotation_transfer) {
         ch_vendor_gff_raw = params.vendor_gff
@@ -77,7 +81,7 @@ workflow EUK_SCAFFOLD_VALIDATION {
             : null
 
         // Fix vendor GFF if provided and fixing enabled
-        if (params.vendor_gff && params.fix_vendor_gff) {
+        if (params.vendor_gff && options.fix_vendor_gff) {
             AGAT_FIX_VENDOR_GFF(ch_vendor_gff_raw, 'vendor')
             ch_vendor_gff = AGAT_FIX_VENDOR_GFF.out.fixed_gff
         } else {
@@ -90,7 +94,8 @@ workflow EUK_SCAFFOLD_VALIDATION {
             ch_reference_gff,
             ch_assembly,
             ch_vendor_gff,
-            true
+            true,
+            options
         )
 
         // QUAST runs after annotation transfer completes

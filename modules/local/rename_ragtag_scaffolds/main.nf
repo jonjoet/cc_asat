@@ -7,24 +7,22 @@ process RENAME_RAGTAG_SCAFFOLDS {
 
     input:
     path scaffold
-    path unplaced
 
     output:
-    path "${params.sample_name}_scaffolds.fasta",          emit: scaffold
-    path "${params.sample_name}_unplaced.fasta",           emit: unplaced, optional: true
+    path "${params.sample_name}_scaffolds.fasta", emit: scaffold
 
     script:
-    def handle_unplaced = unplaced.name != 'NO_FILE' ? """
-    rename_ragtag_scaffolds.py \\
-        --input ${unplaced} \\
-        --output ${params.sample_name}_unplaced.fasta \\
-        --sample-id ${params.sample_name}
-    """ : ""
+    def pattern = params.scaffold_rename_pattern
+    if (pattern != null && (!(pattern instanceof String) || pattern.isEmpty())) {
+        error "ERROR: --scaffold_rename_pattern must be null or a nonempty string."
+    }
+    def safe_pattern = pattern?.replace("'", "'\\''")
+    def pattern_arg = pattern != null ? "'--chr-pattern=${safe_pattern}'" : ""
     """
     rename_ragtag_scaffolds.py \\
         --input ${scaffold} \\
         --output ${params.sample_name}_scaffolds.fasta \\
-        --sample-id ${params.sample_name}
-    ${handle_unplaced}
+        --sample-id ${params.sample_name} \\
+        ${pattern_arg}
     """
 }

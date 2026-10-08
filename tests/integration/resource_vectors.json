@@ -1,0 +1,2869 @@
+{
+  "schema_version": 1,
+  "contract_id": "cc-resource-v1",
+  "contract_sha256": "2a00165b10f57ba9812aac12debb47abb35c2c716b10d48858ad4b3c194ff398",
+  "diagnostic_templates": {
+    "E_CPU": "ERROR: --max_cpus must be an integer >= 1 (maximum 2147483647); received '<value>'.",
+    "E_MEM": "ERROR: --max_memory must be a positive memory quantity with units, e.g. '512 MB' or '8 GB'; received '<value>'.",
+    "E_TIME": "ERROR: --max_time must be a positive duration with units, e.g. '30min' or '12h'; received '<value>'.",
+    "E_BOOL": "ERROR: --<name> must be a boolean (true or false); received '<value>'.",
+    "E_AUTO": "ERROR: --reorient_assembly must be a boolean (true or false) or YAML null for auto; received '<value>'."
+  },
+  "resource_cases": [
+    {
+      "id": "R01",
+      "input": {
+        "max_cpus": 1,
+        "max_memory": "128 MB",
+        "max_time": "30min"
+      },
+      "effective": {
+        "cpus": 1,
+        "memory_bytes": 134217728,
+        "time_ms": 1800000
+      },
+      "expected": {
+        "single": [
+          1,
+          134217728,
+          1800000
+        ],
+        "low": [
+          1,
+          134217728,
+          1800000
+        ],
+        "medium": [
+          1,
+          134217728,
+          1800000
+        ],
+        "high": [
+          1,
+          134217728,
+          1800000
+        ],
+        "unlabelled": [
+          1,
+          134217728,
+          1800000
+        ]
+      },
+      "mode": "execute",
+      "transports": [
+        "cli",
+        "yaml"
+      ]
+    },
+    {
+      "id": "R02",
+      "input": {
+        "max_cpus": 1,
+        "max_memory": "512 MB",
+        "max_time": "30min"
+      },
+      "effective": {
+        "cpus": 1,
+        "memory_bytes": 536870912,
+        "time_ms": 1800000
+      },
+      "expected": {
+        "single": [
+          1,
+          536870912,
+          1800000
+        ],
+        "low": [
+          1,
+          536870912,
+          1800000
+        ],
+        "medium": [
+          1,
+          536870912,
+          1800000
+        ],
+        "high": [
+          1,
+          536870912,
+          1800000
+        ],
+        "unlabelled": [
+          1,
+          536870912,
+          1800000
+        ]
+      },
+      "mode": "execute",
+      "transports": [
+        "cli",
+        "yaml"
+      ]
+    },
+    {
+      "id": "R03",
+      "input": {
+        "max_cpus": 8,
+        "max_memory": "7 GB",
+        "max_time": "12h"
+      },
+      "effective": {
+        "cpus": 8,
+        "memory_bytes": 7516192768,
+        "time_ms": 43200000
+      },
+      "expected": {
+        "single": [
+          1,
+          2147483648,
+          3600000
+        ],
+        "low": [
+          2,
+          1879048192,
+          10800000
+        ],
+        "medium": [
+          4,
+          3758096384,
+          21600000
+        ],
+        "high": [
+          8,
+          7516192768,
+          43200000
+        ],
+        "unlabelled": [
+          8,
+          7516192768,
+          43200000
+        ]
+      },
+      "mode": "execute",
+      "transports": [
+        "cli",
+        "yaml"
+      ]
+    },
+    {
+      "id": "R04",
+      "input": {
+        "max_cpus": 3,
+        "max_memory": "3 GB",
+        "max_time": "3h"
+      },
+      "effective": {
+        "cpus": 3,
+        "memory_bytes": 3221225472,
+        "time_ms": 10800000
+      },
+      "expected": {
+        "single": [
+          1,
+          2147483648,
+          3600000
+        ],
+        "low": [
+          1,
+          1073741824,
+          3600000
+        ],
+        "medium": [
+          2,
+          2147483648,
+          10800000
+        ],
+        "high": [
+          3,
+          3221225472,
+          10800000
+        ],
+        "unlabelled": [
+          3,
+          3221225472,
+          10800000
+        ]
+      },
+      "mode": "execute",
+      "transports": [
+        "cli",
+        "yaml"
+      ]
+    },
+    {
+      "id": "R05",
+      "input": {
+        "max_cpus": 2,
+        "max_memory": "3 GB",
+        "max_time": "5h"
+      },
+      "effective": {
+        "cpus": 2,
+        "memory_bytes": 3221225472,
+        "time_ms": 18000000
+      },
+      "expected": {
+        "single": [
+          1,
+          2147483648,
+          3600000
+        ],
+        "low": [
+          1,
+          1073741824,
+          4500000
+        ],
+        "medium": [
+          2,
+          2147483648,
+          14400000
+        ],
+        "high": [
+          2,
+          3221225472,
+          18000000
+        ],
+        "unlabelled": [
+          2,
+          3221225472,
+          18000000
+        ]
+      },
+      "mode": "execute",
+      "transports": [
+        "cli",
+        "yaml"
+      ]
+    },
+    {
+      "id": "R06",
+      "input": {
+        "max_cpus": 5,
+        "max_memory": "10 GB",
+        "max_time": "10h"
+      },
+      "effective": {
+        "cpus": 5,
+        "memory_bytes": 10737418240,
+        "time_ms": 36000000
+      },
+      "expected": {
+        "single": [
+          1,
+          2147483648,
+          3600000
+        ],
+        "low": [
+          2,
+          2684354560,
+          9000000
+        ],
+        "medium": [
+          3,
+          5368709120,
+          18000000
+        ],
+        "high": [
+          5,
+          10737418240,
+          36000000
+        ],
+        "unlabelled": [
+          5,
+          10737418240,
+          36000000
+        ]
+      },
+      "mode": "execute",
+      "transports": [
+        "cli",
+        "yaml"
+      ]
+    },
+    {
+      "id": "R07",
+      "input": {
+        "max_cpus": 7,
+        "max_memory": "7169 MB",
+        "max_time": "13h"
+      },
+      "effective": {
+        "cpus": 7,
+        "memory_bytes": 7517241344,
+        "time_ms": 46800000
+      },
+      "expected": {
+        "single": [
+          1,
+          2147483648,
+          3600000
+        ],
+        "low": [
+          2,
+          1880096768,
+          11700000
+        ],
+        "medium": [
+          4,
+          3759144960,
+          23400000
+        ],
+        "high": [
+          7,
+          7517241344,
+          46800000
+        ],
+        "unlabelled": [
+          7,
+          7517241344,
+          46800000
+        ]
+      },
+      "mode": "execute",
+      "transports": [
+        "cli",
+        "yaml"
+      ]
+    },
+    {
+      "id": "R08",
+      "input": {
+        "max_cpus": 8,
+        "max_memory": "4097 MB",
+        "max_time": "28800001ms"
+      },
+      "effective": {
+        "cpus": 8,
+        "memory_bytes": 4296015872,
+        "time_ms": 28800001
+      },
+      "expected": {
+        "single": [
+          1,
+          2147483648,
+          3600000
+        ],
+        "low": [
+          2,
+          1074790400,
+          7200001
+        ],
+        "medium": [
+          4,
+          2148532224,
+          14400001
+        ],
+        "high": [
+          8,
+          4296015872,
+          28800001
+        ],
+        "unlabelled": [
+          8,
+          4296015872,
+          28800001
+        ]
+      },
+      "mode": "execute",
+      "transports": [
+        "cli",
+        "yaml"
+      ]
+    },
+    {
+      "id": "R09",
+      "input": {
+        "max_cpus": 1,
+        "max_memory": "1536 KB",
+        "max_time": "1500ms"
+      },
+      "effective": {
+        "cpus": 1,
+        "memory_bytes": 1572864,
+        "time_ms": 1500
+      },
+      "expected": {
+        "single": [
+          1,
+          1572864,
+          1500
+        ],
+        "low": [
+          1,
+          1572864,
+          1500
+        ],
+        "medium": [
+          1,
+          1572864,
+          1500
+        ],
+        "high": [
+          1,
+          1572864,
+          1500
+        ],
+        "unlabelled": [
+          1,
+          1572864,
+          1500
+        ]
+      },
+      "mode": "execute",
+      "transports": [
+        "cli",
+        "yaml"
+      ]
+    },
+    {
+      "id": "R10",
+      "input": {
+        "max_cpus": 1,
+        "max_memory": "1 MB",
+        "max_time": "1ms"
+      },
+      "effective": {
+        "cpus": 1,
+        "memory_bytes": 1048576,
+        "time_ms": 1
+      },
+      "expected": {
+        "single": [
+          1,
+          1048576,
+          1
+        ],
+        "low": [
+          1,
+          1048576,
+          1
+        ],
+        "medium": [
+          1,
+          1048576,
+          1
+        ],
+        "high": [
+          1,
+          1048576,
+          1
+        ],
+        "unlabelled": [
+          1,
+          1048576,
+          1
+        ]
+      },
+      "mode": "resolution_only",
+      "transports": [
+        "cli",
+        "yaml"
+      ]
+    },
+    {
+      "id": "R11",
+      "input": {
+        "max_cpus": 1,
+        "max_memory": "1 B",
+        "max_time": "1ms"
+      },
+      "effective": {
+        "cpus": 1,
+        "memory_bytes": 1,
+        "time_ms": 1
+      },
+      "expected": {
+        "single": [
+          1,
+          1,
+          1
+        ],
+        "low": [
+          1,
+          1,
+          1
+        ],
+        "medium": [
+          1,
+          1,
+          1
+        ],
+        "high": [
+          1,
+          1,
+          1
+        ],
+        "unlabelled": [
+          1,
+          1,
+          1
+        ]
+      },
+      "mode": "resolution_only",
+      "transports": [
+        "cli",
+        "yaml"
+      ]
+    },
+    {
+      "id": "R12",
+      "input": {
+        "max_cpus": " 0003 ",
+        "max_memory": "1.5 GB",
+        "max_time": "1h 30min"
+      },
+      "effective": {
+        "cpus": 3,
+        "memory_bytes": 1610612736,
+        "time_ms": 5400000
+      },
+      "expected": {
+        "single": [
+          1,
+          1610612736,
+          3600000
+        ],
+        "low": [
+          1,
+          1073741824,
+          3600000
+        ],
+        "medium": [
+          2,
+          1610612736,
+          5400000
+        ],
+        "high": [
+          3,
+          1610612736,
+          5400000
+        ],
+        "unlabelled": [
+          3,
+          1610612736,
+          5400000
+        ]
+      },
+      "mode": "execute",
+      "transports": [
+        "cli",
+        "yaml"
+      ]
+    },
+    {
+      "id": "R13",
+      "input": {
+        "max_cpus": 8,
+        "max_memory": "4096.5 MB",
+        "max_time": "8h"
+      },
+      "effective": {
+        "cpus": 8,
+        "memory_bytes": 4295491584,
+        "time_ms": 28800000
+      },
+      "expected": {
+        "single": [
+          1,
+          2147483648,
+          3600000
+        ],
+        "low": [
+          2,
+          1073741824,
+          7200000
+        ],
+        "medium": [
+          4,
+          2147483648,
+          14400000
+        ],
+        "high": [
+          8,
+          4295491584,
+          28800000
+        ],
+        "unlabelled": [
+          8,
+          4295491584,
+          28800000
+        ]
+      },
+      "mode": "execute",
+      "transports": [
+        "cli",
+        "yaml"
+      ]
+    }
+  ],
+  "precedence_cases": [
+    {
+      "id": "P01",
+      "stages": [
+        "project"
+      ],
+      "overrides": {
+        "project": {
+          "max_cpus": 16,
+          "max_memory": "16 GB",
+          "max_time": "24h"
+        }
+      },
+      "expected_effective": {
+        "cpus": 16,
+        "memory_bytes": 17179869184,
+        "time_ms": 86400000
+      }
+    },
+    {
+      "id": "P02",
+      "stages": [
+        "project",
+        "c1"
+      ],
+      "overrides": {
+        "project": {
+          "max_cpus": 16,
+          "max_memory": "16 GB",
+          "max_time": "24h"
+        },
+        "c1": {
+          "max_cpus": 6,
+          "max_memory": "6 GB",
+          "max_time": "6h"
+        }
+      },
+      "expected_effective": {
+        "cpus": 6,
+        "memory_bytes": 6442450944,
+        "time_ms": 21600000
+      }
+    },
+    {
+      "id": "P03",
+      "stages": [
+        "project",
+        "c1",
+        "c2"
+      ],
+      "overrides": {
+        "project": {
+          "max_cpus": 16,
+          "max_memory": "16 GB",
+          "max_time": "24h"
+        },
+        "c1": {
+          "max_cpus": 6,
+          "max_memory": "6 GB",
+          "max_time": "6h"
+        },
+        "c2": {
+          "max_cpus": 3,
+          "max_memory": "3 GB",
+          "max_time": "3h"
+        }
+      },
+      "expected_effective": {
+        "cpus": 3,
+        "memory_bytes": 3221225472,
+        "time_ms": 10800000
+      }
+    },
+    {
+      "id": "P04",
+      "stages": [
+        "project",
+        "c1",
+        "c2",
+        "profile"
+      ],
+      "overrides": {
+        "project": {
+          "max_cpus": 16,
+          "max_memory": "16 GB",
+          "max_time": "24h"
+        },
+        "c1": {
+          "max_cpus": 6,
+          "max_memory": "6 GB",
+          "max_time": "6h"
+        },
+        "c2": {
+          "max_cpus": 3,
+          "max_memory": "3 GB",
+          "max_time": "3h"
+        },
+        "profile": {
+          "max_cpus": 5,
+          "max_memory": "10 GB",
+          "max_time": "10h"
+        }
+      },
+      "expected_effective": {
+        "cpus": 5,
+        "memory_bytes": 10737418240,
+        "time_ms": 36000000
+      }
+    },
+    {
+      "id": "P05",
+      "stages": [
+        "project",
+        "c1",
+        "c2",
+        "profile",
+        "yaml"
+      ],
+      "overrides": {
+        "project": {
+          "max_cpus": 16,
+          "max_memory": "16 GB",
+          "max_time": "24h"
+        },
+        "c1": {
+          "max_cpus": 6,
+          "max_memory": "6 GB",
+          "max_time": "6h"
+        },
+        "c2": {
+          "max_cpus": 3,
+          "max_memory": "3 GB",
+          "max_time": "3h"
+        },
+        "profile": {
+          "max_cpus": 5,
+          "max_memory": "10 GB",
+          "max_time": "10h"
+        },
+        "yaml": {
+          "max_cpus": 4,
+          "max_memory": "4 GB",
+          "max_time": "4h"
+        }
+      },
+      "expected_effective": {
+        "cpus": 4,
+        "memory_bytes": 4294967296,
+        "time_ms": 14400000
+      }
+    },
+    {
+      "id": "P06",
+      "stages": [
+        "project",
+        "c1",
+        "c2",
+        "profile",
+        "yaml",
+        "cli"
+      ],
+      "overrides": {
+        "project": {
+          "max_cpus": 16,
+          "max_memory": "16 GB",
+          "max_time": "24h"
+        },
+        "c1": {
+          "max_cpus": 6,
+          "max_memory": "6 GB",
+          "max_time": "6h"
+        },
+        "c2": {
+          "max_cpus": 3,
+          "max_memory": "3 GB",
+          "max_time": "3h"
+        },
+        "profile": {
+          "max_cpus": 5,
+          "max_memory": "10 GB",
+          "max_time": "10h"
+        },
+        "yaml": {
+          "max_cpus": 4,
+          "max_memory": "4 GB",
+          "max_time": "4h"
+        },
+        "cli": {
+          "max_cpus": 1,
+          "max_memory": "512 MB",
+          "max_time": "30min"
+        }
+      },
+      "expected_effective": {
+        "cpus": 1,
+        "memory_bytes": 536870912,
+        "time_ms": 1800000
+      }
+    },
+    {
+      "id": "P07",
+      "stages": [
+        "project",
+        "c1",
+        "c2",
+        "profile",
+        "yaml"
+      ],
+      "overrides": {
+        "project": {
+          "max_cpus": 16,
+          "max_memory": "16 GB",
+          "max_time": "24h"
+        },
+        "c1": {
+          "max_cpus": 6,
+          "max_memory": "6 GB",
+          "max_time": "6h"
+        },
+        "c2": {
+          "max_cpus": 3,
+          "max_memory": "3 GB",
+          "max_time": "3h"
+        },
+        "profile": {
+          "max_cpus": 5,
+          "max_memory": "10 GB",
+          "max_time": "10h"
+        },
+        "yaml": {
+          "max_memory": "512 MB"
+        }
+      },
+      "expected_effective": {
+        "cpus": 5,
+        "memory_bytes": 536870912,
+        "time_ms": 36000000
+      }
+    },
+    {
+      "id": "P08",
+      "stages": [
+        "project",
+        "c1",
+        "c2",
+        "profile",
+        "yaml",
+        "cli"
+      ],
+      "overrides": {
+        "project": {
+          "max_cpus": 16,
+          "max_memory": "16 GB",
+          "max_time": "24h"
+        },
+        "c1": {
+          "max_cpus": 6,
+          "max_memory": "6 GB",
+          "max_time": "6h"
+        },
+        "c2": {
+          "max_cpus": 3,
+          "max_memory": "3 GB",
+          "max_time": "3h"
+        },
+        "profile": {
+          "max_cpus": 5,
+          "max_memory": "10 GB",
+          "max_time": "10h"
+        },
+        "yaml": {
+          "max_memory": "512 MB"
+        },
+        "cli": {
+          "max_cpus": 1
+        }
+      },
+      "expected_effective": {
+        "cpus": 1,
+        "memory_bytes": 536870912,
+        "time_ms": 36000000
+      }
+    },
+    {
+      "id": "P09",
+      "stages": [
+        "project",
+        "c1",
+        "c2",
+        "profile",
+        "yaml",
+        "cli"
+      ],
+      "overrides": {
+        "project": {
+          "max_cpus": 16,
+          "max_memory": "16 GB",
+          "max_time": "24h"
+        },
+        "c1": {
+          "max_cpus": 6,
+          "max_memory": "6 GB",
+          "max_time": "6h"
+        },
+        "c2": {
+          "max_cpus": 3,
+          "max_memory": "3 GB",
+          "max_time": "3h"
+        },
+        "profile": {
+          "max_cpus": 5,
+          "max_memory": "10 GB",
+          "max_time": "10h"
+        },
+        "yaml": {
+          "max_memory": "512 MB"
+        },
+        "cli": {
+          "max_cpus": 1,
+          "max_time": "30min"
+        }
+      },
+      "expected_effective": {
+        "cpus": 1,
+        "memory_bytes": 536870912,
+        "time_ms": 1800000
+      }
+    },
+    {
+      "id": "P10",
+      "stages": [
+        "project",
+        "c2",
+        "c1"
+      ],
+      "overrides": {
+        "project": {
+          "max_cpus": 16,
+          "max_memory": "16 GB",
+          "max_time": "24h"
+        },
+        "c2": {
+          "max_cpus": 3,
+          "max_memory": "3 GB",
+          "max_time": "3h"
+        },
+        "c1": {
+          "max_cpus": 6,
+          "max_memory": "6 GB",
+          "max_time": "6h"
+        }
+      },
+      "expected_effective": {
+        "cpus": 6,
+        "memory_bytes": 6442450944,
+        "time_ms": 21600000
+      }
+    }
+  ],
+  "negative_cases": [
+    {
+      "id": "NC-01",
+      "parameter": "max_cpus",
+      "input": 0,
+      "transports": [
+        "cli",
+        "yaml"
+      ],
+      "diagnostic": "E_CPU",
+      "expected_tasks": 0,
+      "assertions": {
+        "cli": {
+          "mode": "template"
+        },
+        "yaml": {
+          "mode": "exact",
+          "received": "0"
+        }
+      }
+    },
+    {
+      "id": "NC-02",
+      "parameter": "max_cpus",
+      "input": -1,
+      "transports": [
+        "cli",
+        "yaml"
+      ],
+      "diagnostic": "E_CPU",
+      "expected_tasks": 0,
+      "assertions": {
+        "cli": {
+          "mode": "template"
+        },
+        "yaml": {
+          "mode": "exact",
+          "received": "-1"
+        }
+      }
+    },
+    {
+      "id": "NC-03",
+      "parameter": "max_cpus",
+      "input": 1.5,
+      "transports": [
+        "cli",
+        "yaml"
+      ],
+      "diagnostic": "E_CPU",
+      "expected_tasks": 0,
+      "assertions": {
+        "cli": {
+          "mode": "template"
+        },
+        "yaml": {
+          "mode": "exact",
+          "received": "1.5"
+        }
+      }
+    },
+    {
+      "id": "NC-04",
+      "parameter": "max_cpus",
+      "input": "1.0",
+      "transports": [
+        "cli",
+        "yaml"
+      ],
+      "diagnostic": "E_CPU",
+      "expected_tasks": 0,
+      "assertions": {
+        "cli": {
+          "mode": "template"
+        },
+        "yaml": {
+          "mode": "exact",
+          "received": "1.0"
+        }
+      }
+    },
+    {
+      "id": "NC-05",
+      "parameter": "max_cpus",
+      "input": "1e3",
+      "transports": [
+        "cli",
+        "yaml"
+      ],
+      "diagnostic": "E_CPU",
+      "expected_tasks": 0,
+      "assertions": {
+        "cli": {
+          "mode": "template"
+        },
+        "yaml": {
+          "mode": "exact",
+          "received": "1e3"
+        }
+      }
+    },
+    {
+      "id": "NC-06",
+      "parameter": "max_cpus",
+      "input": true,
+      "transports": [
+        "cli",
+        "yaml"
+      ],
+      "diagnostic": "E_CPU",
+      "expected_tasks": 0,
+      "assertions": {
+        "cli": {
+          "mode": "template"
+        },
+        "yaml": {
+          "mode": "exact",
+          "received": "true"
+        }
+      }
+    },
+    {
+      "id": "NC-07",
+      "parameter": "max_cpus",
+      "input": false,
+      "transports": [
+        "cli",
+        "yaml"
+      ],
+      "diagnostic": "E_CPU",
+      "expected_tasks": 0,
+      "assertions": {
+        "cli": {
+          "mode": "template"
+        },
+        "yaml": {
+          "mode": "exact",
+          "received": "false"
+        }
+      }
+    },
+    {
+      "id": "NC-08",
+      "parameter": "max_cpus",
+      "input": null,
+      "transports": [
+        "yaml"
+      ],
+      "diagnostic": "E_CPU",
+      "expected_tasks": 0,
+      "assertions": {
+        "yaml": {
+          "mode": "exact",
+          "received": "null"
+        }
+      }
+    },
+    {
+      "id": "NC-09",
+      "parameter": "max_cpus",
+      "input": "",
+      "transports": [
+        "yaml"
+      ],
+      "diagnostic": "E_CPU",
+      "expected_tasks": 0,
+      "assertions": {
+        "yaml": {
+          "mode": "exact",
+          "received": ""
+        }
+      }
+    },
+    {
+      "id": "NC-10",
+      "parameter": "max_cpus",
+      "input": " ",
+      "transports": [
+        "cli",
+        "yaml"
+      ],
+      "diagnostic": "E_CPU",
+      "expected_tasks": 0,
+      "assertions": {
+        "cli": {
+          "mode": "template"
+        },
+        "yaml": {
+          "mode": "exact",
+          "received": " "
+        }
+      }
+    },
+    {
+      "id": "NC-11",
+      "parameter": "max_cpus",
+      "input": [],
+      "transports": [
+        "yaml"
+      ],
+      "diagnostic": "E_CPU",
+      "expected_tasks": 0,
+      "assertions": {
+        "yaml": {
+          "mode": "exact",
+          "received": "[]"
+        }
+      }
+    },
+    {
+      "id": "NC-12",
+      "parameter": "max_cpus",
+      "input": {},
+      "transports": [
+        "yaml"
+      ],
+      "diagnostic": "E_CPU",
+      "expected_tasks": 0,
+      "assertions": {
+        "yaml": {
+          "mode": "exact",
+          "received": "{}"
+        }
+      }
+    },
+    {
+      "id": "NC-13",
+      "parameter": "max_cpus",
+      "input": "bogus",
+      "transports": [
+        "cli",
+        "yaml"
+      ],
+      "diagnostic": "E_CPU",
+      "expected_tasks": 0,
+      "assertions": {
+        "cli": {
+          "mode": "template"
+        },
+        "yaml": {
+          "mode": "exact",
+          "received": "bogus"
+        }
+      }
+    },
+    {
+      "id": "NC-14",
+      "parameter": "max_cpus",
+      "input": 2147483648,
+      "transports": [
+        "cli",
+        "yaml"
+      ],
+      "diagnostic": "E_CPU",
+      "expected_tasks": 0,
+      "assertions": {
+        "cli": {
+          "mode": "template"
+        },
+        "yaml": {
+          "mode": "exact",
+          "received": "2147483648"
+        }
+      }
+    },
+    {
+      "id": "NC-15",
+      "parameter": "max_cpus",
+      "input": "999999999999999999999",
+      "transports": [
+        "cli",
+        "yaml"
+      ],
+      "diagnostic": "E_CPU",
+      "expected_tasks": 0,
+      "assertions": {
+        "cli": {
+          "mode": "template"
+        },
+        "yaml": {
+          "mode": "exact",
+          "received": "999999999999999999999"
+        }
+      }
+    },
+    {
+      "id": "NM-01",
+      "parameter": "max_memory",
+      "input": "0 B",
+      "transports": [
+        "cli",
+        "yaml"
+      ],
+      "diagnostic": "E_MEM",
+      "expected_tasks": 0,
+      "assertions": {
+        "cli": {
+          "mode": "template"
+        },
+        "yaml": {
+          "mode": "exact",
+          "received": "0 B"
+        }
+      }
+    },
+    {
+      "id": "NM-02",
+      "parameter": "max_memory",
+      "input": "-1 MB",
+      "transports": [
+        "cli",
+        "yaml"
+      ],
+      "diagnostic": "E_MEM",
+      "expected_tasks": 0,
+      "assertions": {
+        "cli": {
+          "mode": "template"
+        },
+        "yaml": {
+          "mode": "exact",
+          "received": "-1 MB"
+        }
+      }
+    },
+    {
+      "id": "NM-03",
+      "parameter": "max_memory",
+      "input": "bogus",
+      "transports": [
+        "cli",
+        "yaml"
+      ],
+      "diagnostic": "E_MEM",
+      "expected_tasks": 0,
+      "assertions": {
+        "cli": {
+          "mode": "template"
+        },
+        "yaml": {
+          "mode": "exact",
+          "received": "bogus"
+        }
+      }
+    },
+    {
+      "id": "NM-04",
+      "parameter": "max_memory",
+      "input": "1 XB",
+      "transports": [
+        "cli",
+        "yaml"
+      ],
+      "diagnostic": "E_MEM",
+      "expected_tasks": 0,
+      "assertions": {
+        "cli": {
+          "mode": "template"
+        },
+        "yaml": {
+          "mode": "exact",
+          "received": "1 XB"
+        }
+      }
+    },
+    {
+      "id": "NM-05",
+      "parameter": "max_memory",
+      "input": null,
+      "transports": [
+        "yaml"
+      ],
+      "diagnostic": "E_MEM",
+      "expected_tasks": 0,
+      "assertions": {
+        "yaml": {
+          "mode": "exact",
+          "received": "null"
+        }
+      }
+    },
+    {
+      "id": "NM-06",
+      "parameter": "max_memory",
+      "input": true,
+      "transports": [
+        "cli",
+        "yaml"
+      ],
+      "diagnostic": "E_MEM",
+      "expected_tasks": 0,
+      "assertions": {
+        "cli": {
+          "mode": "template"
+        },
+        "yaml": {
+          "mode": "exact",
+          "received": "true"
+        }
+      }
+    },
+    {
+      "id": "NM-07",
+      "parameter": "max_memory",
+      "input": false,
+      "transports": [
+        "cli",
+        "yaml"
+      ],
+      "diagnostic": "E_MEM",
+      "expected_tasks": 0,
+      "assertions": {
+        "cli": {
+          "mode": "template"
+        },
+        "yaml": {
+          "mode": "exact",
+          "received": "false"
+        }
+      }
+    },
+    {
+      "id": "NM-08",
+      "parameter": "max_memory",
+      "input": "",
+      "transports": [
+        "yaml"
+      ],
+      "diagnostic": "E_MEM",
+      "expected_tasks": 0,
+      "assertions": {
+        "yaml": {
+          "mode": "exact",
+          "received": ""
+        }
+      }
+    },
+    {
+      "id": "NM-09",
+      "parameter": "max_memory",
+      "input": " ",
+      "transports": [
+        "cli",
+        "yaml"
+      ],
+      "diagnostic": "E_MEM",
+      "expected_tasks": 0,
+      "assertions": {
+        "cli": {
+          "mode": "template"
+        },
+        "yaml": {
+          "mode": "exact",
+          "received": " "
+        }
+      }
+    },
+    {
+      "id": "NM-10",
+      "parameter": "max_memory",
+      "input": [],
+      "transports": [
+        "yaml"
+      ],
+      "diagnostic": "E_MEM",
+      "expected_tasks": 0,
+      "assertions": {
+        "yaml": {
+          "mode": "exact",
+          "received": "[]"
+        }
+      }
+    },
+    {
+      "id": "NM-11",
+      "parameter": "max_memory",
+      "input": {},
+      "transports": [
+        "yaml"
+      ],
+      "diagnostic": "E_MEM",
+      "expected_tasks": 0,
+      "assertions": {
+        "yaml": {
+          "mode": "exact",
+          "received": "{}"
+        }
+      }
+    },
+    {
+      "id": "NM-12",
+      "parameter": "max_memory",
+      "input": 1024,
+      "transports": [
+        "cli",
+        "yaml"
+      ],
+      "diagnostic": "E_MEM",
+      "expected_tasks": 0,
+      "assertions": {
+        "cli": {
+          "mode": "template"
+        },
+        "yaml": {
+          "mode": "exact",
+          "received": "1024"
+        }
+      }
+    },
+    {
+      "id": "NM-13",
+      "parameter": "max_memory",
+      "input": "1024",
+      "transports": [
+        "cli",
+        "yaml"
+      ],
+      "diagnostic": "E_MEM",
+      "expected_tasks": 0,
+      "assertions": {
+        "cli": {
+          "mode": "template"
+        },
+        "yaml": {
+          "mode": "exact",
+          "received": "1024"
+        }
+      }
+    },
+    {
+      "id": "NM-14",
+      "parameter": "max_memory",
+      "input": "NaN GB",
+      "transports": [
+        "cli",
+        "yaml"
+      ],
+      "diagnostic": "E_MEM",
+      "expected_tasks": 0,
+      "assertions": {
+        "cli": {
+          "mode": "template"
+        },
+        "yaml": {
+          "mode": "exact",
+          "received": "NaN GB"
+        }
+      }
+    },
+    {
+      "id": "NM-15",
+      "parameter": "max_memory",
+      "input": "Infinity GB",
+      "transports": [
+        "cli",
+        "yaml"
+      ],
+      "diagnostic": "E_MEM",
+      "expected_tasks": 0,
+      "assertions": {
+        "cli": {
+          "mode": "template"
+        },
+        "yaml": {
+          "mode": "exact",
+          "received": "Infinity GB"
+        }
+      }
+    },
+    {
+      "id": "NM-16",
+      "parameter": "max_memory",
+      "input": "9223372036854775808 B",
+      "transports": [
+        "cli",
+        "yaml"
+      ],
+      "diagnostic": "E_MEM",
+      "expected_tasks": 0,
+      "assertions": {
+        "cli": {
+          "mode": "template"
+        },
+        "yaml": {
+          "mode": "exact",
+          "received": "9223372036854775808 B"
+        }
+      }
+    },
+    {
+      "id": "NM-17",
+      "parameter": "max_memory",
+      "input": "0.0001 B",
+      "transports": [
+        "cli",
+        "yaml"
+      ],
+      "diagnostic": "E_MEM",
+      "expected_tasks": 0,
+      "assertions": {
+        "cli": {
+          "mode": "template"
+        },
+        "yaml": {
+          "mode": "exact",
+          "received": "0.0001 B"
+        }
+      }
+    },
+    {
+      "id": "NT-01",
+      "parameter": "max_time",
+      "input": "0ms",
+      "transports": [
+        "cli",
+        "yaml"
+      ],
+      "diagnostic": "E_TIME",
+      "expected_tasks": 0,
+      "assertions": {
+        "cli": {
+          "mode": "template"
+        },
+        "yaml": {
+          "mode": "exact",
+          "received": "0ms"
+        }
+      }
+    },
+    {
+      "id": "NT-02",
+      "parameter": "max_time",
+      "input": "-1h",
+      "transports": [
+        "cli",
+        "yaml"
+      ],
+      "diagnostic": "E_TIME",
+      "expected_tasks": 0,
+      "assertions": {
+        "cli": {
+          "mode": "template"
+        },
+        "yaml": {
+          "mode": "exact",
+          "received": "-1h"
+        }
+      }
+    },
+    {
+      "id": "NT-03",
+      "parameter": "max_time",
+      "input": "bogus",
+      "transports": [
+        "cli",
+        "yaml"
+      ],
+      "diagnostic": "E_TIME",
+      "expected_tasks": 0,
+      "assertions": {
+        "cli": {
+          "mode": "template"
+        },
+        "yaml": {
+          "mode": "exact",
+          "received": "bogus"
+        }
+      }
+    },
+    {
+      "id": "NT-04",
+      "parameter": "max_time",
+      "input": "1 fortnightz",
+      "transports": [
+        "cli",
+        "yaml"
+      ],
+      "diagnostic": "E_TIME",
+      "expected_tasks": 0,
+      "assertions": {
+        "cli": {
+          "mode": "template"
+        },
+        "yaml": {
+          "mode": "exact",
+          "received": "1 fortnightz"
+        }
+      }
+    },
+    {
+      "id": "NT-05",
+      "parameter": "max_time",
+      "input": null,
+      "transports": [
+        "yaml"
+      ],
+      "diagnostic": "E_TIME",
+      "expected_tasks": 0,
+      "assertions": {
+        "yaml": {
+          "mode": "exact",
+          "received": "null"
+        }
+      }
+    },
+    {
+      "id": "NT-06",
+      "parameter": "max_time",
+      "input": true,
+      "transports": [
+        "cli",
+        "yaml"
+      ],
+      "diagnostic": "E_TIME",
+      "expected_tasks": 0,
+      "assertions": {
+        "cli": {
+          "mode": "template"
+        },
+        "yaml": {
+          "mode": "exact",
+          "received": "true"
+        }
+      }
+    },
+    {
+      "id": "NT-07",
+      "parameter": "max_time",
+      "input": false,
+      "transports": [
+        "cli",
+        "yaml"
+      ],
+      "diagnostic": "E_TIME",
+      "expected_tasks": 0,
+      "assertions": {
+        "cli": {
+          "mode": "template"
+        },
+        "yaml": {
+          "mode": "exact",
+          "received": "false"
+        }
+      }
+    },
+    {
+      "id": "NT-08",
+      "parameter": "max_time",
+      "input": "",
+      "transports": [
+        "yaml"
+      ],
+      "diagnostic": "E_TIME",
+      "expected_tasks": 0,
+      "assertions": {
+        "yaml": {
+          "mode": "exact",
+          "received": ""
+        }
+      }
+    },
+    {
+      "id": "NT-09",
+      "parameter": "max_time",
+      "input": " ",
+      "transports": [
+        "cli",
+        "yaml"
+      ],
+      "diagnostic": "E_TIME",
+      "expected_tasks": 0,
+      "assertions": {
+        "cli": {
+          "mode": "template"
+        },
+        "yaml": {
+          "mode": "exact",
+          "received": " "
+        }
+      }
+    },
+    {
+      "id": "NT-10",
+      "parameter": "max_time",
+      "input": [],
+      "transports": [
+        "yaml"
+      ],
+      "diagnostic": "E_TIME",
+      "expected_tasks": 0,
+      "assertions": {
+        "yaml": {
+          "mode": "exact",
+          "received": "[]"
+        }
+      }
+    },
+    {
+      "id": "NT-11",
+      "parameter": "max_time",
+      "input": {},
+      "transports": [
+        "yaml"
+      ],
+      "diagnostic": "E_TIME",
+      "expected_tasks": 0,
+      "assertions": {
+        "yaml": {
+          "mode": "exact",
+          "received": "{}"
+        }
+      }
+    },
+    {
+      "id": "NT-12",
+      "parameter": "max_time",
+      "input": 1000,
+      "transports": [
+        "cli",
+        "yaml"
+      ],
+      "diagnostic": "E_TIME",
+      "expected_tasks": 0,
+      "assertions": {
+        "cli": {
+          "mode": "template"
+        },
+        "yaml": {
+          "mode": "exact",
+          "received": "1000"
+        }
+      }
+    },
+    {
+      "id": "NT-13",
+      "parameter": "max_time",
+      "input": "1000",
+      "transports": [
+        "cli",
+        "yaml"
+      ],
+      "diagnostic": "E_TIME",
+      "expected_tasks": 0,
+      "assertions": {
+        "cli": {
+          "mode": "template"
+        },
+        "yaml": {
+          "mode": "exact",
+          "received": "1000"
+        }
+      }
+    },
+    {
+      "id": "NT-14",
+      "parameter": "max_time",
+      "input": "NaN h",
+      "transports": [
+        "cli",
+        "yaml"
+      ],
+      "diagnostic": "E_TIME",
+      "expected_tasks": 0,
+      "assertions": {
+        "cli": {
+          "mode": "template"
+        },
+        "yaml": {
+          "mode": "exact",
+          "received": "NaN h"
+        }
+      }
+    },
+    {
+      "id": "NT-15",
+      "parameter": "max_time",
+      "input": "Infinity h",
+      "transports": [
+        "cli",
+        "yaml"
+      ],
+      "diagnostic": "E_TIME",
+      "expected_tasks": 0,
+      "assertions": {
+        "cli": {
+          "mode": "template"
+        },
+        "yaml": {
+          "mode": "exact",
+          "received": "Infinity h"
+        }
+      }
+    },
+    {
+      "id": "NT-16",
+      "parameter": "max_time",
+      "input": "9223372036854775808ms",
+      "transports": [
+        "cli",
+        "yaml"
+      ],
+      "diagnostic": "E_TIME",
+      "expected_tasks": 0,
+      "assertions": {
+        "cli": {
+          "mode": "template"
+        },
+        "yaml": {
+          "mode": "exact",
+          "received": "9223372036854775808ms"
+        }
+      }
+    },
+    {
+      "id": "NT-17",
+      "parameter": "max_time",
+      "input": "0.0001ms",
+      "transports": [
+        "cli",
+        "yaml"
+      ],
+      "diagnostic": "E_TIME",
+      "expected_tasks": 0,
+      "assertions": {
+        "cli": {
+          "mode": "template"
+        },
+        "yaml": {
+          "mode": "exact",
+          "received": "0.0001ms"
+        }
+      }
+    }
+  ],
+  "boolean_cases": [
+    {
+      "id": "B01",
+      "input": true,
+      "nullable": false,
+      "expected": true,
+      "transports": [
+        "cli",
+        "yaml"
+      ]
+    },
+    {
+      "id": "B02",
+      "input": false,
+      "nullable": false,
+      "expected": false,
+      "transports": [
+        "cli",
+        "yaml"
+      ]
+    },
+    {
+      "id": "B03",
+      "input": "true",
+      "nullable": false,
+      "expected": true,
+      "transports": [
+        "cli",
+        "yaml"
+      ]
+    },
+    {
+      "id": "B04",
+      "input": "false",
+      "nullable": false,
+      "expected": false,
+      "transports": [
+        "cli",
+        "yaml"
+      ]
+    },
+    {
+      "id": "B05",
+      "input": " TrUe ",
+      "nullable": false,
+      "expected": true,
+      "transports": [
+        "cli",
+        "yaml"
+      ]
+    },
+    {
+      "id": "B06",
+      "input": " FaLsE ",
+      "nullable": false,
+      "expected": false,
+      "transports": [
+        "cli",
+        "yaml"
+      ]
+    },
+    {
+      "id": "B07",
+      "input": "FALSE",
+      "nullable": false,
+      "expected": false,
+      "transports": [
+        "cli",
+        "yaml"
+      ]
+    },
+    {
+      "id": "B08",
+      "input": "False",
+      "nullable": false,
+      "expected": false,
+      "transports": [
+        "cli",
+        "yaml"
+      ]
+    },
+    {
+      "id": "B09",
+      "omitted": true,
+      "nullable": false,
+      "expected": "existing_default",
+      "transports": [
+        "cli",
+        "yaml"
+      ]
+    },
+    {
+      "id": "BN01",
+      "input": 1,
+      "nullable": false,
+      "expected": null,
+      "diagnostic": "E_BOOL",
+      "transports": [
+        "cli",
+        "yaml"
+      ],
+      "expected_tasks": 0,
+      "assertions": {
+        "cli": {
+          "mode": "template"
+        },
+        "yaml": {
+          "mode": "exact",
+          "received": "1"
+        }
+      }
+    },
+    {
+      "id": "BN02",
+      "input": 0,
+      "nullable": false,
+      "expected": null,
+      "diagnostic": "E_BOOL",
+      "transports": [
+        "cli",
+        "yaml"
+      ],
+      "expected_tasks": 0,
+      "assertions": {
+        "cli": {
+          "mode": "template"
+        },
+        "yaml": {
+          "mode": "exact",
+          "received": "0"
+        }
+      }
+    },
+    {
+      "id": "BN03",
+      "input": "yes",
+      "nullable": false,
+      "expected": null,
+      "diagnostic": "E_BOOL",
+      "transports": [
+        "cli",
+        "yaml"
+      ],
+      "expected_tasks": 0,
+      "assertions": {
+        "cli": {
+          "mode": "template"
+        },
+        "yaml": {
+          "mode": "exact",
+          "received": "yes"
+        }
+      }
+    },
+    {
+      "id": "BN04",
+      "input": "no",
+      "nullable": false,
+      "expected": null,
+      "diagnostic": "E_BOOL",
+      "transports": [
+        "cli",
+        "yaml"
+      ],
+      "expected_tasks": 0,
+      "assertions": {
+        "cli": {
+          "mode": "template"
+        },
+        "yaml": {
+          "mode": "exact",
+          "received": "no"
+        }
+      }
+    },
+    {
+      "id": "BN05",
+      "input": "",
+      "nullable": false,
+      "expected": null,
+      "diagnostic": "E_BOOL",
+      "transports": [
+        "yaml"
+      ],
+      "expected_tasks": 0,
+      "assertions": {
+        "yaml": {
+          "mode": "exact",
+          "received": ""
+        }
+      }
+    },
+    {
+      "id": "BN06",
+      "input": " ",
+      "nullable": false,
+      "expected": null,
+      "diagnostic": "E_BOOL",
+      "transports": [
+        "cli",
+        "yaml"
+      ],
+      "expected_tasks": 0,
+      "assertions": {
+        "cli": {
+          "mode": "template"
+        },
+        "yaml": {
+          "mode": "exact",
+          "received": " "
+        }
+      }
+    },
+    {
+      "id": "BN07",
+      "input": [],
+      "nullable": false,
+      "expected": null,
+      "diagnostic": "E_BOOL",
+      "transports": [
+        "yaml"
+      ],
+      "expected_tasks": 0,
+      "assertions": {
+        "yaml": {
+          "mode": "exact",
+          "received": "[]"
+        }
+      }
+    },
+    {
+      "id": "BN08",
+      "input": {},
+      "nullable": false,
+      "expected": null,
+      "diagnostic": "E_BOOL",
+      "transports": [
+        "yaml"
+      ],
+      "expected_tasks": 0,
+      "assertions": {
+        "yaml": {
+          "mode": "exact",
+          "received": "{}"
+        }
+      }
+    },
+    {
+      "id": "BN09",
+      "input": null,
+      "nullable": false,
+      "expected": null,
+      "diagnostic": "E_BOOL",
+      "transports": [
+        "yaml"
+      ],
+      "expected_tasks": 0,
+      "assertions": {
+        "yaml": {
+          "mode": "exact",
+          "received": "null"
+        }
+      }
+    },
+    {
+      "id": "BN10",
+      "input": "null",
+      "nullable": false,
+      "expected": null,
+      "diagnostic": "E_BOOL",
+      "transports": [
+        "cli",
+        "yaml"
+      ],
+      "expected_tasks": 0,
+      "assertions": {
+        "cli": {
+          "mode": "template"
+        },
+        "yaml": {
+          "mode": "exact",
+          "received": "null"
+        }
+      }
+    },
+    {
+      "id": "BN11",
+      "input": "auto",
+      "nullable": false,
+      "expected": null,
+      "diagnostic": "E_BOOL",
+      "transports": [
+        "cli",
+        "yaml"
+      ],
+      "expected_tasks": 0,
+      "assertions": {
+        "cli": {
+          "mode": "template"
+        },
+        "yaml": {
+          "mode": "exact",
+          "received": "auto"
+        }
+      }
+    },
+    {
+      "id": "A01",
+      "input": null,
+      "nullable": true,
+      "expected": null,
+      "transports": [
+        "yaml"
+      ],
+      "contexts": [
+        {
+          "organism_type": "bacterial",
+          "expected": true
+        },
+        {
+          "organism_type": "fungal",
+          "expected": false
+        },
+        {
+          "organism_omitted": true,
+          "expected": false
+        }
+      ]
+    },
+    {
+      "id": "A02",
+      "omitted": true,
+      "nullable": true,
+      "expected": null,
+      "transports": [
+        "cli",
+        "yaml"
+      ],
+      "contexts": [
+        {
+          "organism_type": "bacterial",
+          "expected": true
+        },
+        {
+          "organism_type": "fungal",
+          "expected": false
+        },
+        {
+          "organism_omitted": true,
+          "expected": false
+        }
+      ]
+    },
+    {
+      "id": "A03",
+      "input": false,
+      "nullable": true,
+      "expected": false,
+      "transports": [
+        "cli",
+        "yaml"
+      ],
+      "contexts": [
+        {
+          "organism_type": "bacterial",
+          "expected": false
+        },
+        {
+          "organism_type": "fungal",
+          "expected": false
+        },
+        {
+          "organism_omitted": true,
+          "expected": false
+        }
+      ]
+    }
+  ],
+  "mechanism_cases": [
+    {
+      "id": "L01",
+      "kind": "with_name",
+      "spec": {
+        "resource_case": "R02",
+        "requested": {
+          "cpus": 99,
+          "memory_bytes": 106300440576,
+          "time_ms": 3596400000
+        }
+      },
+      "assertions": {
+        "expected_effective": {
+          "cpus": 1,
+          "memory_bytes": 536870912,
+          "time_ms": 1800000
+        },
+        "completed": true,
+        "all_dimensions_capped": true
+      }
+    },
+    {
+      "id": "L02",
+      "kind": "qualified_alias",
+      "spec": {
+        "resource_case": "R02",
+        "requested": {
+          "cpus": 99,
+          "memory_bytes": 106300440576,
+          "time_ms": 3596400000
+        },
+        "selector": "fully_qualified_alias"
+      },
+      "assertions": {
+        "expected_effective": {
+          "cpus": 1,
+          "memory_bytes": 536870912,
+          "time_ms": 1800000
+        },
+        "completed": true,
+        "all_dimensions_capped": true
+      }
+    },
+    {
+      "id": "L03",
+      "kind": "retry",
+      "spec": {
+        "resource_case": "R02",
+        "request_multiplier": "task.attempt",
+        "intentional_failure_attempt": 1,
+        "max_retries": 1
+      },
+      "assertions": {
+        "attempts": [
+          1,
+          2
+        ],
+        "successful_attempt": 2,
+        "each_attempt_capped": true,
+        "expected_effective": {
+          "cpus": 1,
+          "memory_bytes": 536870912,
+          "time_ms": 1800000
+        }
+      }
+    },
+    {
+      "id": "D01",
+      "kind": "detected_defaults",
+      "spec": {
+        "omit": [
+          "max_cpus",
+          "max_memory",
+          "max_time"
+        ],
+        "nxf_opts": "-Xmx768m -XX:ActiveProcessorCount=4",
+        "raw_oracle": "separate_no_config_script_same_container_and_jvm_flags",
+        "memory_source": "/proc/meminfo"
+      },
+      "assertions": {
+        "raw_available_processors": 4,
+        "expected_cpus": 2,
+        "expected_memory_bytes": "max(1, floor(MemTotal_kB/1048576) - 2) * 1073741824",
+        "expected_time_ms": 604800000,
+        "compare_all_tiers": true
+      }
+    },
+    {
+      "id": "D02",
+      "kind": "detected_defaults",
+      "spec": {
+        "omit": [
+          "max_cpus",
+          "max_memory",
+          "max_time"
+        ],
+        "nxf_opts": "-Xmx768m -XX:ActiveProcessorCount=1",
+        "raw_oracle": "separate_no_config_script_same_container_and_jvm_flags",
+        "memory_source": "/proc/meminfo"
+      },
+      "assertions": {
+        "raw_available_processors": 1,
+        "expected_cpus": 1,
+        "expected_memory_bytes": "max(1, floor(MemTotal_kB/1048576) - 2) * 1073741824",
+        "expected_time_ms": 604800000,
+        "compare_all_tiers": true
+      }
+    },
+    {
+      "id": "D03",
+      "kind": "memory_fallback_component",
+      "spec": {
+        "nxf_opts": "-Xms64m -Xmx5g -XX:ActiveProcessorCount=4",
+        "source": "actual_default_memory_closure",
+        "only_patch": {
+          "from": "/proc/meminfo",
+          "to": "nonexistent_run_local_path"
+        },
+        "raw_oracle": "separate_no_config_script_same_container_and_jvm_flags"
+      },
+      "assertions": {
+        "raw_max_memory_min_bytes": 5368709120,
+        "expected_memory_bytes": "max(1, floor(raw_max_memory_bytes/1073741824) - 2) * 1073741824",
+        "exact_5g_expected_bytes": 3221225472,
+        "preserve_source_excerpt_hash_and_literal_diff": true,
+        "component_only": true
+      }
+    },
+    {
+      "id": "D04",
+      "kind": "explicit_over_detected",
+      "spec": {
+        "resource_case": "R03",
+        "nxf_opts": "-Xmx768m -XX:ActiveProcessorCount=4"
+      },
+      "assertions": {
+        "expected_effective": {
+          "cpus": 8,
+          "memory_bytes": 7516192768,
+          "time_ms": 43200000
+        },
+        "compare_all_tiers": true
+      }
+    }
+  ],
+  "parameter_batches": [
+    {
+      "id": "H-YAML",
+      "transport": "yaml",
+      "case_refs": [
+        "R01",
+        "R02",
+        "R03",
+        "R04",
+        "R05",
+        "R06",
+        "R07",
+        "R08",
+        "R09",
+        "R10",
+        "R11",
+        "R12",
+        "R13",
+        "NC-01",
+        "NC-02",
+        "NC-03",
+        "NC-04",
+        "NC-05",
+        "NC-06",
+        "NC-07",
+        "NC-08",
+        "NC-09",
+        "NC-10",
+        "NC-11",
+        "NC-12",
+        "NC-13",
+        "NC-14",
+        "NC-15",
+        "NM-01",
+        "NM-02",
+        "NM-03",
+        "NM-04",
+        "NM-05",
+        "NM-06",
+        "NM-07",
+        "NM-08",
+        "NM-09",
+        "NM-10",
+        "NM-11",
+        "NM-12",
+        "NM-13",
+        "NM-14",
+        "NM-15",
+        "NM-16",
+        "NM-17",
+        "NT-01",
+        "NT-02",
+        "NT-03",
+        "NT-04",
+        "NT-05",
+        "NT-06",
+        "NT-07",
+        "NT-08",
+        "NT-09",
+        "NT-10",
+        "NT-11",
+        "NT-12",
+        "NT-13",
+        "NT-14",
+        "NT-15",
+        "NT-16",
+        "NT-17",
+        "B01",
+        "B02",
+        "B03",
+        "B04",
+        "B05",
+        "B06",
+        "B07",
+        "B08",
+        "B09",
+        "BN01",
+        "BN02",
+        "BN03",
+        "BN04",
+        "BN05",
+        "BN06",
+        "BN07",
+        "BN08",
+        "BN09",
+        "BN10",
+        "BN11",
+        "A01",
+        "A02",
+        "A03"
+      ],
+      "expand_flags": true
+    },
+    {
+      "id": "H-CLI",
+      "transport": "cli",
+      "case_refs": [
+        "R01",
+        "R02",
+        "R03",
+        "R04",
+        "R05",
+        "R06",
+        "R07",
+        "R08",
+        "R09",
+        "R10",
+        "R11",
+        "R12",
+        "R13",
+        "NC-01",
+        "NC-02",
+        "NC-03",
+        "NC-04",
+        "NC-05",
+        "NC-06",
+        "NC-07",
+        "NC-10",
+        "NC-13",
+        "NC-14",
+        "NC-15",
+        "NM-01",
+        "NM-02",
+        "NM-03",
+        "NM-04",
+        "NM-06",
+        "NM-07",
+        "NM-09",
+        "NM-12",
+        "NM-13",
+        "NM-14",
+        "NM-15",
+        "NM-16",
+        "NM-17",
+        "NT-01",
+        "NT-02",
+        "NT-03",
+        "NT-04",
+        "NT-06",
+        "NT-07",
+        "NT-09",
+        "NT-12",
+        "NT-13",
+        "NT-14",
+        "NT-15",
+        "NT-16",
+        "NT-17",
+        "B01",
+        "B02",
+        "B03",
+        "B04",
+        "B05",
+        "B06",
+        "B07",
+        "B08",
+        "B09",
+        "BN01",
+        "BN02",
+        "BN03",
+        "BN04",
+        "BN06",
+        "BN10",
+        "BN11",
+        "A02",
+        "A03"
+      ],
+      "expand_flags": true
+    }
+  ],
+  "entry_cases": [
+    {
+      "id": "EV01",
+      "expand": "once",
+      "layers": {
+        "config": {
+          "all_flags": "no"
+        },
+        "yaml": {
+          "all_flags": "yes"
+        },
+        "cli": {
+          "all_flags": "FALSE"
+        }
+      },
+      "case_refs": [
+        "B07",
+        "BN03",
+        "BN04"
+      ],
+      "expected_exit": "zero",
+      "expected_tasks": 0
+    },
+    {
+      "id": "EV02",
+      "expand": "once",
+      "layers": {
+        "config": {
+          "all_flags": "yes"
+        },
+        "yaml": {
+          "all_flags": " TrUe "
+        },
+        "cli": {}
+      },
+      "case_refs": [
+        "B05",
+        "BN03"
+      ],
+      "expected_exit": "zero",
+      "expected_tasks": 0
+    },
+    {
+      "id": "EV03",
+      "expand": "once",
+      "layers": {
+        "config": {},
+        "yaml": {},
+        "cli": {}
+      },
+      "case_refs": [
+        "B09"
+      ],
+      "expected_exit": "zero",
+      "expected_tasks": 0
+    },
+    {
+      "id": "EV04",
+      "expand": "once",
+      "layers": {
+        "config": {
+          "all_flags": true
+        },
+        "yaml": {
+          "all_flags": false
+        },
+        "cli": {
+          "lexicographically_first_flag": true
+        }
+      },
+      "case_refs": [
+        "B01",
+        "B02"
+      ],
+      "expected_exit": "zero",
+      "expected_tasks": 0
+    },
+    {
+      "id": "EN-CLI",
+      "expand": "flags",
+      "layers": {
+        "config": {},
+        "yaml": {},
+        "cli": {
+          "selected_flag": "yes"
+        }
+      },
+      "case_refs": [
+        "BN03"
+      ],
+      "expected_exit": "nonzero",
+      "expected_tasks": 0,
+      "diagnostic": {
+        "nonnullable": "E_BOOL",
+        "nullable": "E_AUTO"
+      },
+      "assertions": {
+        "cli": {
+          "mode": "template"
+        }
+      }
+    },
+    {
+      "id": "EN-YAML",
+      "expand": "flags",
+      "layers": {
+        "config": {},
+        "yaml": {
+          "selected_flag_by_nullability": {
+            "nonnullable": null,
+            "nullable": []
+          }
+        },
+        "cli": {}
+      },
+      "case_refs": [
+        "BN09",
+        "BN07"
+      ],
+      "expected_exit": "nonzero",
+      "expected_tasks": 0,
+      "diagnostic": {
+        "nonnullable": "E_BOOL",
+        "nullable": "E_AUTO"
+      },
+      "assertions": {
+        "yaml": {
+          "nonnullable": {
+            "mode": "exact",
+            "received": "null"
+          },
+          "nullable": {
+            "mode": "exact",
+            "received": "[]"
+          }
+        }
+      }
+    },
+    {
+      "id": "EC-CLI",
+      "expand": "dimensions",
+      "layers": {
+        "config": {},
+        "yaml": {},
+        "cli": {
+          "selected_dimension_case": {
+            "max_cpus": "NC-02",
+            "max_memory": "NM-02",
+            "max_time": "NT-02"
+          }
+        }
+      },
+      "case_refs": [
+        "NC-02",
+        "NM-02",
+        "NT-02"
+      ],
+      "expected_exit": "nonzero",
+      "expected_tasks": 0,
+      "diagnostic": {
+        "max_cpus": "E_CPU",
+        "max_memory": "E_MEM",
+        "max_time": "E_TIME"
+      },
+      "assertions": {
+        "cli": {
+          "mode": "template"
+        }
+      }
+    },
+    {
+      "id": "EC-YAML",
+      "expand": "dimensions",
+      "layers": {
+        "config": {},
+        "yaml": {
+          "selected_dimension_case": {
+            "max_cpus": "NC-08",
+            "max_memory": "NM-05",
+            "max_time": "NT-05"
+          }
+        },
+        "cli": {}
+      },
+      "case_refs": [
+        "NC-08",
+        "NM-05",
+        "NT-05"
+      ],
+      "expected_exit": "nonzero",
+      "expected_tasks": 0,
+      "diagnostic": {
+        "max_cpus": "E_CPU",
+        "max_memory": "E_MEM",
+        "max_time": "E_TIME"
+      },
+      "assertions": {
+        "yaml": {
+          "mode": "exact",
+          "received": "null"
+        }
+      }
+    },
+    {
+      "id": "EA01",
+      "expand": "nullable_routes",
+      "layers": {
+        "config": {},
+        "yaml": {
+          "reorient_assembly": null
+        },
+        "cli": {}
+      },
+      "case_refs": [
+        "A01"
+      ],
+      "expected_exit": "zero",
+      "expected_tasks": 0,
+      "route_contexts": {
+        "full": {
+          "organism_type": "bacterial"
+        },
+        "annotation_transfer_only": {
+          "organism_omitted": true
+        }
+      }
+    },
+    {
+      "id": "EA02",
+      "expand": "nullable_routes",
+      "layers": {
+        "config": {},
+        "yaml": {},
+        "cli": {}
+      },
+      "case_refs": [
+        "A02"
+      ],
+      "expected_exit": "zero",
+      "expected_tasks": 0,
+      "route_contexts": {
+        "full": {
+          "organism_type": "fungal"
+        },
+        "annotation_transfer_only": {
+          "organism_type": "bacterial"
+        }
+      }
+    }
+  ],
+  "expansion_rules": {
+    "supported_engine": "26.04.6",
+    "full_parsers": [
+      "v1",
+      "v2"
+    ],
+    "unset_parser_resource_refs": [
+      "R02",
+      "R03"
+    ],
+    "unset_parser_precedence_refs": [
+      "P06"
+    ],
+    "unset_parser_mechanism_refs": [
+      "L01",
+      "D01"
+    ],
+    "helper_flags": "Expand B/BN only over the repository public Boolean inventory; R/NC/NM/NT once per transport/parser.",
+    "nullable_flag": "reorient_assembly",
+    "nullable_negative_diagnostic": "E_AUTO",
+    "nullable_null_substitution": {
+      "from": "BN09",
+      "to": "A01"
+    },
+    "nullable_success_cases": "Apply B01-B08 to nullable flags too. Resolve B09 via A02. Expand A01-A03 for nullable flags only over their organism contexts.",
+    "entry_valid_resource_ref": "R03",
+    "entry_routes": "repository public routes",
+    "entry_default_layers": "Unmentioned values are omitted; layer special keys denote expansion recipes, never public parameters.",
+    "precedence_profile": "contract_profile",
+    "precedence_c2_order": "root assignments before profiles; no root assignments after profiles",
+    "resolution_only": "Five exec processes, all five records, exit zero; no shell or OS-enforcement claim.",
+    "cli_argv": "Use --name=value for every supplied scalar; preserve whitespace as one argv element. Omitted/typed null/list/map/empty cases have only the listed transports.",
+    "boolean_error_expected": "For rows with diagnostic, expected null is an error sentinel, never a successful normalized null."
+  }
+}
